@@ -6,5 +6,6 @@
 .vscode/
 logs/
 target/
+.DS_Store
 metals.sbt
 *.class
