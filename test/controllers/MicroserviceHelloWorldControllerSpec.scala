@@ -25,7 +25,7 @@ import play.api.test.{FakeRequest, Helpers}
 class MicroserviceHelloWorldControllerSpec extends AnyWordSpec with Matchers {
 
   private val fakeRequest = FakeRequest("GET", "/")
-  private val controller = new MicroserviceHelloWorldController(Helpers.stubControllerComponents())
+  private val controller  = new MicroserviceHelloWorldController(Helpers.stubControllerComponents())
 
   "GET /" should {
     "return 200" in {
