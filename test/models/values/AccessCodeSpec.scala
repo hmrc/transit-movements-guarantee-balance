@@ -16,15 +16,11 @@
 
 package models.values
 
-import play.api.libs.json.Format
-import play.api.libs.json.Json
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-case class AccessCode(value: String) extends AnyVal {
-  override def toString: String =
-    s"$productPrefix(***)"
-}
-
-object AccessCode {
-  implicit val accessCodeFormat: Format[AccessCode] =
-    Json.valueFormat[AccessCode]
+class AccessCodeSpec extends AnyFlatSpec with Matchers {
+  "AccessCode.toString" should "redact the access code value" in {
+    AccessCode("1234").toString shouldBe "AccessCode(***)"
+  }
 }
