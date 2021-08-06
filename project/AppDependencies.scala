@@ -11,7 +11,7 @@ object AppDependencies {
   val compile = Seq(
     "uk.gov.hmrc"       %% "bootstrap-backend-play-28" % bootstrapVersion,
     "uk.gov.hmrc.mongo" %% "hmrc-mongo-play-28"        % hmrcMongoVersion,
-    "uk.gov.hmrc"       %% "play-json-union-formatter" % "1.13.0-play-27",
+    "uk.gov.hmrc"       %% "play-json-union-formatter" % "1.14.0-play-28",
     "io.lemonlabs"      %% "scala-uri"                 % "3.5.0",
     "org.typelevel"     %% "cats-core"                 % catsVersion,
     "org.typelevel"     %% "cats-effect"               % catsEffectVersion,
