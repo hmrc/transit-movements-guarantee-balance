@@ -5,6 +5,7 @@ import sbt._
 object AppDependencies {
   val catsVersion       = "2.6.1"
   val catsEffectVersion = "3.2.1"
+  val catsRetryVersion  = "3.0.0"
   val bootstrapVersion  = "5.9.0"
   val hmrcMongoVersion  = "0.52.0"
 
@@ -15,6 +16,7 @@ object AppDependencies {
     "io.lemonlabs"      %% "scala-uri"                 % "3.5.0",
     "org.typelevel"     %% "cats-core"                 % catsVersion,
     "org.typelevel"     %% "cats-effect"               % catsEffectVersion,
+    "com.github.cb372"  %% "cats-retry"                % catsRetryVersion,
     compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
   )
 
