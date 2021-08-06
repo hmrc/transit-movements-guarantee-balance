@@ -14,29 +14,26 @@
  * limitations under the License.
  */
 
-package controllers
+package controllers.actions
 
-import cats.effect.IO
-import cats.effect.unsafe.IORuntime
-import controllers.actions.AuthActionProvider
-import controllers.actions.IOActions
-import play.api.mvc.Action
+import com.google.inject.ImplementedBy
+import models.request.AuthenticatedRequest
+import play.api.mvc.ActionBuilder
 import play.api.mvc.AnyContent
-import play.api.mvc.ControllerComponents
-import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
+import play.api.mvc.DefaultActionBuilder
 
 import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton()
-class MicroserviceHelloWorldController @Inject() (
-  authenticate: AuthActionProvider,
-  cc: ControllerComponents,
-  val runtime: IORuntime
-) extends BackendController(cc)
-    with IOActions {
+@ImplementedBy(classOf[AuthActionProviderImpl])
+trait AuthActionProvider {
+  def apply(): ActionBuilder[AuthenticatedRequest, AnyContent]
+}
 
-  def hello(): Action[AnyContent] = authenticate().io {
-    IO.pure(Ok("Hello world"))
-  }
+class AuthActionProviderImpl @Inject() (
+  buildDefault: DefaultActionBuilder,
+  authenticate: AuthAction
+) extends AuthActionProvider {
+
+  override def apply(): ActionBuilder[AuthenticatedRequest, AnyContent] =
+    buildDefault andThen authenticate
 }

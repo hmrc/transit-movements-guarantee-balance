@@ -16,21 +16,27 @@
 
 package controllers
 
+import cats.effect.unsafe.IORuntime
+import controllers.actions.FakeAuthActionProvider
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
-import play.api.http.Status
+import play.api.test.FakeRequest
+import play.api.test.Helpers
 import play.api.test.Helpers._
-import play.api.test.{FakeRequest, Helpers}
 
-class MicroserviceHelloWorldControllerSpec extends AnyWordSpec with Matchers {
+class MicroserviceHelloWorldControllerSpec extends AnyFlatSpec with Matchers {
 
   private val fakeRequest = FakeRequest("GET", "/")
-  private val controller  = new MicroserviceHelloWorldController(Helpers.stubControllerComponents())
 
-  "GET /" should {
-    "return 200" in {
-      val result = controller.hello()(fakeRequest)
-      status(result) shouldBe Status.OK
-    }
+  private val controller = new MicroserviceHelloWorldController(
+    FakeAuthActionProvider,
+    Helpers.stubControllerComponents(),
+    IORuntime.global
+  )
+
+  "GET /" should "return 200" in {
+    val result = controller.hello()(fakeRequest)
+    status(result) shouldBe OK
+    contentAsString(result) shouldBe "Hello world"
   }
 }
