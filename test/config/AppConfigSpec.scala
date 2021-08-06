@@ -37,11 +37,11 @@ class AppConfigSpec extends AnyFlatSpec with Matchers {
         "microservice.services.eis-router.protocol" -> "https",
         "microservice.services.eis-router.host"     -> "foo",
         "microservice.services.eis-router.port"     -> "101010",
-        "microservice.services.eis-router.uri"      -> "bar"
+        "microservice.services.eis-router.path"     -> "/bar/baz/quu"
       )
     )
 
-    appConfig.eisRouterUrl shouldBe AbsoluteUrl.parse("https://foo:101010/bar")
+    appConfig.eisRouterUrl shouldBe AbsoluteUrl.parse("https://foo:101010/bar/baz/quu")
   }
 
   it should "deserialize enrolment config" in {

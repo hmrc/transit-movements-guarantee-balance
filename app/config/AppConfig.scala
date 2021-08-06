@@ -17,6 +17,7 @@
 package config
 
 import io.lemonlabs.uri.AbsoluteUrl
+import io.lemonlabs.uri.UrlPath
 import play.api.Configuration
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
@@ -29,8 +30,10 @@ class AppConfig @Inject() (config: Configuration, servicesConfig: ServicesConfig
 
   private lazy val eisRouterBaseUrl: AbsoluteUrl =
     AbsoluteUrl.parse(servicesConfig.baseUrl("eis-router"))
+  private lazy val eisRouterPath: UrlPath =
+    UrlPath.parse(config.get[String]("microservice.services.eis-router.path"))
   lazy val eisRouterUrl: AbsoluteUrl =
-    eisRouterBaseUrl.addPathPart(config.get[String]("microservice.services.eis-router.uri"))
+    eisRouterBaseUrl.withPath(eisRouterPath)
 
   lazy val enrolmentKey        = config.get[String]("auth.enrolmentKey")
   lazy val enrolmentIdentifier = config.get[String]("auth.enrolmentIdentifier")

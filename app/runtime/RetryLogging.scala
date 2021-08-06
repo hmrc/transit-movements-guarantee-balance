@@ -23,7 +23,7 @@ import retry.RetryDetails
 import scala.concurrent.duration.Duration
 
 object RetryLogging {
-  def retryMessage(operation: String, details: RetryDetails) = details match {
+  def retryMessage(operation: String, details: RetryDetails): String = details match {
     case RetryDetails.GivingUp(retries, _) =>
       s"Error while ${operation} after ${retries} retries, giving up"
     case RetryDetails.WillDelayAndRetry(Duration.Zero, 0, _) =>
@@ -40,7 +40,7 @@ object RetryLogging {
       s"Error while ${operation} after ${retries} retries, trying again in ${delay.toMillis}ms"
   }
 
-  def log(operation: String, logger: Logger)(exc: Throwable, details: RetryDetails) = {
+  def log(operation: String, logger: Logger)(exc: Throwable, details: RetryDetails): IO[Unit] = {
     val message = retryMessage(operation, details)
 
     if (details.givingUp)
