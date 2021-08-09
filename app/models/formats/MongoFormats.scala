@@ -31,7 +31,7 @@ import java.time.Instant
 
 object MongoFormats extends MongoFormats
 
-trait MongoFormats extends CommonFormats with MongoJavatimeFormats {
+trait MongoFormats extends CommonFormats with MongoJavatimeFormats.Implicits {
   implicit val functionalErrorFormat: Format[FunctionalError] =
     Json.format[FunctionalError]
   implicit val xmlErrorFormat: Format[XmlError] =

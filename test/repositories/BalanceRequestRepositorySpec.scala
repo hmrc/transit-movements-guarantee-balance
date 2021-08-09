@@ -20,7 +20,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import config.AppConfig
 import models.BalanceRequestResponse
-import models.Generators
+import models.ModelGenerators
 import models.PendingBalanceRequest
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -31,18 +31,22 @@ import play.api.test.FutureAwaits
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
+import java.time.Clock
+import java.time.ZoneOffset
+import java.time.temporal.ChronoField
 import scala.concurrent.ExecutionContext
 
 class BalanceRequestRepositorySpec
     extends AnyFlatSpec
     with Matchers
     with ScalaCheckPropertyChecks
-    with Generators
+    with ModelGenerators
     with FutureAwaits
     with DefaultAwaitTimeout
     with DefaultPlayMongoRepositorySupport[PendingBalanceRequest] {
 
-  implicit val ec = ExecutionContext.global
+  implicit val ec    = ExecutionContext.global
+  override val clock = Clock.tickSeconds(ZoneOffset.UTC)
 
   override lazy val repository = new BalanceRequestRepository(
     mongoComponent,
@@ -78,13 +82,14 @@ class BalanceRequestRepositorySpec
       val assertion = for {
         nextId <- idRepository.nextRequestId
         request = balanceRequest.copy(requestId = nextId)
-        acked   <- repository.insertBalanceRequest(request)
-        _       <- if (!acked) IO(fail("Insert request was not acknowledged")) else IO.unit
-        updated <- repository.updateBalanceRequest(nextId, response)
+        acked <- repository.insertBalanceRequest(request)
+        _     <- if (!acked) IO(fail("Insert request was not acknowledged")) else IO.unit
+        completedAt = clock.instant().`with`(ChronoField.NANO_OF_SECOND, 0)
+        expected    = request.copy(completedAt = Some(completedAt), response = Some(response))
+        actual <- repository.updateBalanceRequest(nextId, completedAt, response)
         _ <-
-          if (updated.isEmpty) IO(fail("The balance request to update was not found")) else IO.unit
-        retrieved <- repository.getBalanceRequest(request.requestId)
-      } yield retrieved should contain(request.copy(response = Some(response)))
+          if (actual.isEmpty) IO(fail("The balance request to update was not found")) else IO.unit
+      } yield actual should contain(expected)
 
       await(assertion.unsafeToFuture())
   }

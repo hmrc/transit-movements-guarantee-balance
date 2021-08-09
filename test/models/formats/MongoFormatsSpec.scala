@@ -41,9 +41,12 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
     response = None
   )
 
+  def date(inst: Instant) =
+    Json.obj(s"$$date" -> Json.obj("$numberLong" -> inst.toEpochMilli().toString))
+
   val pendingBalanceRequestJson = Json.obj(
     "_id"                -> 1,
-    "requestedAt"        -> clock.instant().minusSeconds(60).toString,
+    "requestedAt"        -> date(clock.instant().minusSeconds(60)),
     "userInternalId"     -> "1234567",
     "userEnrolmentId"    -> "GB12345678900",
     "taxIdentifier"      -> "GB12345678900",
@@ -56,7 +59,7 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
   )
 
   val successfulBalanceRequestJson = pendingBalanceRequestJson ++ Json.obj(
-    "completedAt" -> clock.instant().toString,
+    "completedAt" -> date(clock.instant()),
     "response" -> Json.obj(
       "status"   -> "SUCCESS",
       "balance"  -> BigDecimal("12345678.90"),

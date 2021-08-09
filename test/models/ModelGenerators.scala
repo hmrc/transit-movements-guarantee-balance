@@ -24,18 +24,28 @@ import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen
 
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
-trait Generators {
-  private val now = LocalDateTime.now
+trait ModelGenerators {
+  def clock: Clock
+
+  private lazy val now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
+
+  implicit val arbInstant: Arbitrary[Instant] = Arbitrary {
+    arbitrary[LocalDateTime].map { dt =>
+      dt.withYear(now.getYear)
+        .withNano(0)
+        .toInstant(ZoneOffset.UTC)
+    }
+  }
 
   implicit val arbPendingBalanceRequest: Arbitrary[PendingBalanceRequest] = Arbitrary {
     for {
-      requestId <- arbitrary[Int].map(RequestId.apply)
-      requestedAt <- arbitrary[LocalDateTime].map { dt =>
-        dt.withYear(now.getYear).toInstant(ZoneOffset.UTC)
-      }
+      requestId          <- arbitrary[Int].map(RequestId.apply)
+      requestedAt        <- arbitrary[Instant]
       userInternalId     <- Gen.alphaNumStr.map(InternalId.apply)
       userEnrolmentId    <- Gen.alphaNumStr.map(EnrolmentId.apply)
       taxIdentifier      <- Gen.stringOfN(17, Gen.alphaNumChar).map(TaxIdentifier.apply)

@@ -26,15 +26,18 @@ import org.bson.codecs.configuration.CodecRegistries
 import org.mongodb.scala.MongoClient
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters
+import org.mongodb.scala.model.FindOneAndUpdateOptions
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.model.IndexOptions
 import org.mongodb.scala.model.Indexes
+import org.mongodb.scala.model.ReturnDocument
 import org.mongodb.scala.model.Updates
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.Codecs
 import uk.gov.hmrc.mongo.play.json.CollectionFactory
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
+import java.time.Instant
 import javax.inject.Inject
 import scala.concurrent.ExecutionContext
 
@@ -87,12 +90,18 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
 
   def updateBalanceRequest(
     requestId: RequestId,
+    completedAt: Instant,
     response: BalanceRequestResponse
   ): IO[Option[PendingBalanceRequest]] =
     IO.observeFirstOption {
       collection.findOneAndUpdate(
         Filters.eq("_id", requestId.value),
-        Updates.set("response", response)
+        Updates.combine(
+          Updates.set("completedAt", completedAt),
+          Updates.set("response", response)
+        ),
+        FindOneAndUpdateOptions()
+          .returnDocument(ReturnDocument.AFTER)
       )
     }
 }
