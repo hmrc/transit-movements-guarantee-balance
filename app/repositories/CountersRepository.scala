@@ -49,7 +49,7 @@ class CountersRepository @Inject() (mongoComponent: MongoComponent)(implicit ec:
     with IOObservables
     with Logging {
 
-  def isDuplicateKey(exc: Throwable) = exc match {
+  private def isDuplicateKey(exc: Throwable) = exc match {
     case DuplicateKey(_) => IO.pure(true)
     case _               => IO.pure(false)
   }

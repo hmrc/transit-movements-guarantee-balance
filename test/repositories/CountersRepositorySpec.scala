@@ -54,7 +54,7 @@ class CountersRepositorySpec
   // It should be fixed in MongoDB 4.2 by https://jira.mongodb.org/browse/SERVER-37124
   // In the meantime we have added retrying behaviour to this code
   it should "not produce duplicate ID values for concurrent calls" in {
-    val requests = for (_ <- 1 to 1000) yield repository.nextRequestId.unsafeToFuture()
+    val requests = for (_ <- 1 to 100) yield repository.nextRequestId.unsafeToFuture()
     val results  = Future.sequence(requests).futureValue
 
     val original     = results.toList.sortBy(_.value)

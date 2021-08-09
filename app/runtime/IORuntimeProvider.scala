@@ -16,6 +16,7 @@
 
 package runtime
 
+import akka.actor.ActorSystem
 import cats.effect.unsafe.IORuntime
 import cats.effect.unsafe.IORuntimeConfig
 import play.api.inject.ApplicationLifecycle
@@ -25,22 +26,16 @@ import javax.inject.Provider
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
-class IORuntimeProvider @Inject() (lifecycle: ApplicationLifecycle)(implicit ec: ExecutionContext)
-    extends Provider[IORuntime] {
+class IORuntimeProvider @Inject() (lifecycle: ApplicationLifecycle, system: ActorSystem)(implicit
+  compute: ExecutionContext
+) extends Provider[IORuntime] {
+
+  private lazy val blocking: ExecutionContext =
+    system.dispatchers.lookup("blocking-io-dispatcher")
 
   private lazy val runtime: IORuntime = {
-    val (compute, shutdownCompute) =
-      IORuntime.createDefaultComputeThreadPool(runtime)
-    val (blocking, shutdownBlocking) =
-      IORuntime.createDefaultBlockingExecutionContext()
     val (scheduler, shutdownScheduler) =
       IORuntime.createDefaultScheduler()
-
-    val shutdownAll = () => {
-      try shutdownScheduler()
-      finally try shutdownBlocking()
-      finally shutdownCompute()
-    }
 
     lifecycle.addStopHook { () =>
       Future(runtime.shutdown())
@@ -48,7 +43,7 @@ class IORuntimeProvider @Inject() (lifecycle: ApplicationLifecycle)(implicit ec:
 
     val config = IORuntimeConfig()
 
-    IORuntime(compute, blocking, scheduler, shutdownAll, config)
+    IORuntime(compute, blocking, scheduler, () => shutdownScheduler(), config)
   }
 
   override def get(): IORuntime = runtime

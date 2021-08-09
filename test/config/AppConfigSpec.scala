@@ -60,4 +60,15 @@ class AppConfigSpec extends AnyFlatSpec with Matchers {
     val appConfig = mkAppConfig(Configuration("mongodb.balance-requests.ttl" -> "2 hours"))
     appConfig.mongoBalanceRequestTtl shouldBe 2.hours
   }
+
+  it should "deserialize features config" in {
+    val appConfig = mkAppConfig(
+      Configuration(
+        "features.fooBar" -> "true",
+        "features.bazQuu" -> "false"
+      )
+    )
+
+    appConfig.features shouldBe Map("fooBar" -> true, "bazQuu" -> false)
+  }
 }
