@@ -38,9 +38,9 @@ trait MongoFormats extends CommonFormats with MongoJavatimeFormats.Implicits {
     Json.format[XmlError]
 
   def withStatusField[A <: BalanceRequestResponse](format: OWrites[A], status: String): OWrites[A] =
-    format.transform((jsobj: JsObject) =>
-      jsobj ++ Json.obj(BalanceRequestResponseStatus.FieldName -> status)
-    )
+    format.transform { (obj: JsObject) =>
+      obj ++ Json.obj(BalanceRequestResponseStatus.FieldName -> status)
+    }
 
   implicit val balanceRequestSuccessFormat: OFormat[BalanceRequestSuccess] = OFormat(
     Json.reads[BalanceRequestSuccess],
@@ -69,10 +69,6 @@ trait MongoFormats extends CommonFormats with MongoJavatimeFormats.Implicits {
   implicit val pendingBalanceRequestFormat: OFormat[PendingBalanceRequest] = (
     (__ \ "_id").format[RequestId] and
       (__ \ "requestedAt").format[Instant] and
-      (__ \ "userInternalId").format[InternalId] and
-      (__ \ "userEnrolmentId").format[EnrolmentId] and
-      (__ \ "taxIdentifier").format[TaxIdentifier] and
-      (__ \ "guaranteeReference").format[GuaranteeReference] and
       (__ \ "completedAt").formatNullable[Instant] and
       (__ \ "response").formatNullable[BalanceRequestResponse]
   )(PendingBalanceRequest.apply _, unlift(PendingBalanceRequest.unapply _))

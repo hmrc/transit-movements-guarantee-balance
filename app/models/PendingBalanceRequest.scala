@@ -16,38 +16,13 @@
 
 package models
 
-import models.request.AuthenticatedRequest
-import models.request.BalanceRequest
-import models.values._
+import models.values.RequestId
 
 import java.time.Instant
 
 case class PendingBalanceRequest(
   requestId: RequestId,
   requestedAt: Instant,
-  userInternalId: InternalId,
-  userEnrolmentId: EnrolmentId,
-  // Might be the same as userEnrolmentId if we have a new enrolment
-  taxIdentifier: TaxIdentifier,
-  guaranteeReference: GuaranteeReference,
   completedAt: Option[Instant],
   response: Option[BalanceRequestResponse]
 )
-
-object PendingBalanceRequest {
-  def fromRequest(
-    requestId: RequestId,
-    requestedAt: Instant,
-    request: AuthenticatedRequest[BalanceRequest]
-  ) =
-    PendingBalanceRequest(
-      requestId,
-      requestedAt,
-      request.internalId,
-      request.enrolmentId,
-      request.body.taxIdentifier,
-      request.body.guaranteeReference,
-      completedAt = None,
-      response = None
-    )
-}

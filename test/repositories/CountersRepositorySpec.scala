@@ -50,7 +50,7 @@ class CountersRepositorySpec
     repository.nextRequestId.unsafeToFuture().futureValue shouldBe RequestId(4)
   }
 
-  // This intermittently fails due to https://jira.mongodb.org/browse/SERVER-14322
+  // Upsert intermittently fails due to https://jira.mongodb.org/browse/SERVER-14322
   // It should be fixed in MongoDB 4.2 by https://jira.mongodb.org/browse/SERVER-37124
   // In the meantime we have added retrying behaviour to this code
   it should "not produce duplicate ID values for concurrent calls" in {

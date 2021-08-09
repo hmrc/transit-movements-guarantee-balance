@@ -33,10 +33,6 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
   val pendingBalanceRequest = PendingBalanceRequest(
     RequestId(1),
     clock.instant().minusSeconds(60),
-    InternalId("1234567"),
-    EnrolmentId("GB12345678900"),
-    TaxIdentifier("GB12345678900"),
-    GuaranteeReference("05DE3300BE0001067A001017"),
     completedAt = None,
     response = None
   )
@@ -45,12 +41,8 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
     Json.obj(s"$$date" -> Json.obj("$numberLong" -> inst.toEpochMilli().toString))
 
   val pendingBalanceRequestJson = Json.obj(
-    "_id"                -> 1,
-    "requestedAt"        -> date(clock.instant().minusSeconds(60)),
-    "userInternalId"     -> "1234567",
-    "userEnrolmentId"    -> "GB12345678900",
-    "taxIdentifier"      -> "GB12345678900",
-    "guaranteeReference" -> "05DE3300BE0001067A001017"
+    "_id"         -> 1,
+    "requestedAt" -> date(clock.instant().minusSeconds(60))
   )
 
   val successfulBalanceRequest = pendingBalanceRequest.copy(

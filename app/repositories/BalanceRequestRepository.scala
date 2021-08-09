@@ -48,7 +48,6 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
       collectionName = BalanceRequestRepository.collectionName,
       domainFormat = MongoFormats.pendingBalanceRequestFormat,
       indexes = Seq(
-        // index for internalId, enrolmentId needed here too?
         IndexModel(
           Indexes.descending("requestedAt"),
           IndexOptions()

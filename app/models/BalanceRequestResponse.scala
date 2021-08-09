@@ -20,8 +20,6 @@ import cats.data.NonEmptyList
 import models.errors._
 import models.values.CurrencyCode
 
-// import scala.xml.NodeSeq
-
 sealed abstract class BalanceRequestResponse extends Product with Serializable
 
 case class BalanceRequestSuccess(
@@ -36,32 +34,3 @@ case class BalanceRequestFunctionalError(
 case class BalanceRequestXmlError(
   errors: NonEmptyList[XmlError]
 ) extends BalanceRequestResponse
-
-// object BalanceRequestResponse {
-//   // Do schema validation before this so we can rely on valid XML structure
-//   // Consider creating an XML wrapper data type for each kind of message as argument to this function?
-//   def fromXml(xml: NodeSeq): Option[BalanceRequestResponse] =
-//     xml.headOption.flatMap {
-//       case node if node.label == "CD037A" =>
-//         for {
-//           balanceNode <- (node \\ "BalEXP3").headOption
-//           balance = BigDecimal(balanceNode.text.trim)
-//           currencyNode <- (node \\ "CurEXP4").headOption
-//           currency = CurrencyCode(currencyNode.text.trim)
-//         } yield BalanceRequestSuccess(balance, currency)
-//       case node if node.label == "CC917A" =>
-//         Some(
-//           // BalanceRequestFunctionalError(
-//           // )
-//           ???
-//         )
-//       case node if node.label == "CD906A" =>
-//         Some(
-//           // BalanceRequestXmlError(
-//           // )
-//           ???
-//         )
-//       case _ =>
-//         None
-//     }
-// }
