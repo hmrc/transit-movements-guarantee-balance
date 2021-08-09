@@ -21,11 +21,12 @@ object AppDependencies {
   )
 
   val test = Seq(
-    "org.scalatest"       %% "scalatest"               % "3.2.9",
-    "org.scalatestplus"   %% "scalacheck-1-15"         % "3.2.9.0",
-    "uk.gov.hmrc"         %% "bootstrap-test-play-28"  % bootstrapVersion,
-    "uk.gov.hmrc.mongo"   %% "hmrc-mongo-test-play-28" % hmrcMongoVersion,
-    "com.typesafe.akka"   %% "akka-testkit"            % PlayVersion.akkaVersion,
-    "com.vladsch.flexmark" % "flexmark-all"            % "0.36.8"
+    "org.scalatest"        %% "scalatest"               % "3.2.9",
+    "org.scalatestplus"    %% "scalacheck-1-15"         % "3.2.9.0",
+    "uk.gov.hmrc"          %% "bootstrap-test-play-28"  % bootstrapVersion,
+    "uk.gov.hmrc.mongo"    %% "hmrc-mongo-test-play-28" % hmrcMongoVersion,
+    "com.typesafe.akka"    %% "akka-testkit"            % PlayVersion.akkaVersion,
+    "io.github.wolfendale" %% "scalacheck-gen-regexp"   % "0.1.3",
+    "com.vladsch.flexmark"  % "flexmark-all"            % "0.36.8"
   ).map(_ % s"$Test, $IntegrationTest")
 }

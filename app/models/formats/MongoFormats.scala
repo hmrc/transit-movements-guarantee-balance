@@ -37,12 +37,27 @@ trait MongoFormats extends CommonFormats with MongoJavatimeFormats {
   implicit val xmlErrorFormat: Format[XmlError] =
     Json.format[XmlError]
 
-  implicit val balanceRequestSuccessFormat: OFormat[BalanceRequestSuccess] =
-    Json.format[BalanceRequestSuccess]
+  def withStatusField[A <: BalanceRequestResponse](format: OWrites[A], status: String): OWrites[A] =
+    format.transform((jsobj: JsObject) =>
+      jsobj ++ Json.obj(BalanceRequestResponseStatus.FieldName -> status)
+    )
+
+  implicit val balanceRequestSuccessFormat: OFormat[BalanceRequestSuccess] = OFormat(
+    Json.reads[BalanceRequestSuccess],
+    withStatusField(Json.writes[BalanceRequestSuccess], BalanceRequestResponseStatus.Success)
+  )
+  implicit val balanceRequestXmlErrorFormat: OFormat[BalanceRequestXmlError] = OFormat(
+    Json.reads[BalanceRequestXmlError],
+    withStatusField(Json.writes[BalanceRequestXmlError], BalanceRequestResponseStatus.XmlError)
+  )
   implicit val balanceRequestFunctionalErrorFormat: OFormat[BalanceRequestFunctionalError] =
-    Json.format[BalanceRequestFunctionalError]
-  implicit val balanceRequestXmlErrorFormat: OFormat[BalanceRequestXmlError] =
-    Json.format[BalanceRequestXmlError]
+    OFormat(
+      Json.reads[BalanceRequestFunctionalError],
+      withStatusField(
+        Json.writes[BalanceRequestFunctionalError],
+        BalanceRequestResponseStatus.FunctionalError
+      )
+    )
 
   implicit val balanceRequestResponseFormat: Format[BalanceRequestResponse] = Union
     .from[BalanceRequestResponse](BalanceRequestResponseStatus.FieldName)

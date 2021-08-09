@@ -16,13 +16,23 @@
 
 package repositories
 
+import cats.effect.IO
 import config.AppConfig
+import models.BalanceRequestResponse
 import models.PendingBalanceRequest
 import models.formats.MongoFormats
+import models.values.RequestId
+import org.bson.codecs.configuration.CodecRegistries
+import org.mongodb.scala.MongoClient
+import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.model.Filters
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.model.IndexOptions
 import org.mongodb.scala.model.Indexes
+import org.mongodb.scala.model.Updates
 import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.play.json.Codecs
+import uk.gov.hmrc.mongo.play.json.CollectionFactory
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import javax.inject.Inject
@@ -47,6 +57,45 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
         )
       )
     )
+    with IOObservables {
+
+  override lazy val collection: MongoCollection[PendingBalanceRequest] =
+    CollectionFactory
+      .collection(mongoComponent.database, collectionName, domainFormat)
+      .withCodecRegistry(
+        CodecRegistries.fromRegistries(
+          CodecRegistries.fromCodecs(
+            Codecs.playFormatCodec(domainFormat),
+            Codecs.playFormatCodec(MongoFormats.balanceRequestResponseFormat),
+            Codecs.playFormatCodec(MongoFormats.balanceRequestSuccessFormat),
+            Codecs.playFormatCodec(MongoFormats.balanceRequestFunctionalErrorFormat),
+            Codecs.playFormatCodec(MongoFormats.balanceRequestXmlErrorFormat)
+          ),
+          MongoClient.DEFAULT_CODEC_REGISTRY
+        )
+      )
+
+  def getBalanceRequest(requestId: RequestId): IO[Option[PendingBalanceRequest]] =
+    IO.observeFirstOption {
+      collection.find(Filters.eq("_id", requestId.value))
+    }
+
+  def insertBalanceRequest(balanceRequest: PendingBalanceRequest): IO[Boolean] =
+    IO.observeFirst {
+      collection.insertOne(balanceRequest)
+    }.map(_.wasAcknowledged())
+
+  def updateBalanceRequest(
+    requestId: RequestId,
+    response: BalanceRequestResponse
+  ): IO[Option[PendingBalanceRequest]] =
+    IO.observeFirstOption {
+      collection.findOneAndUpdate(
+        Filters.eq("_id", requestId.value),
+        Updates.set("response", response)
+      )
+    }
+}
 
 object BalanceRequestRepository {
   val collectionName = "balance-requests"
