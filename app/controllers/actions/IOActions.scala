@@ -14,29 +14,26 @@
  * limitations under the License.
  */
 
-package controllers
+package controllers.actions
 
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
-import controllers.actions.AuthActionProvider
-import controllers.actions.IOActions
 import play.api.mvc.Action
+import play.api.mvc.ActionBuilder
 import play.api.mvc.AnyContent
-import play.api.mvc.ControllerComponents
-import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
+import play.api.mvc.BaseController
+import play.api.mvc.BodyParser
+import play.api.mvc.Result
 
-import javax.inject.Inject
-import javax.inject.Singleton
+trait IOActions { self: BaseController =>
+  def runtime: IORuntime
 
-@Singleton()
-class MicroserviceHelloWorldController @Inject() (
-  authenticate: AuthActionProvider,
-  cc: ControllerComponents,
-  val runtime: IORuntime
-) extends BackendController(cc)
-    with IOActions {
-
-  def hello(): Action[AnyContent] = authenticate().io {
-    IO.pure(Ok("Hello world"))
+  implicit class IOActionBuilderOps[+R[_], A](builder: ActionBuilder[R, A]) {
+    def io(block: IO[Result]): Action[AnyContent] =
+      builder.async(block.unsafeToFuture()(runtime))
+    def io(block: R[A] => IO[Result]): Action[A] =
+      builder.async(block(_).unsafeToFuture()(runtime))
+    def io[B](parser: BodyParser[B])(block: R[B] => IO[Result]): Action[B] =
+      builder.async(parser)(block(_).unsafeToFuture()(runtime))
   }
 }

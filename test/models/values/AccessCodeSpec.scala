@@ -14,29 +14,13 @@
  * limitations under the License.
  */
 
-package controllers
+package models.values
 
-import cats.effect.unsafe.IORuntime
-import controllers.actions.FakeAuthActionProvider
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.test.FakeRequest
-import play.api.test.Helpers
-import play.api.test.Helpers._
 
-class MicroserviceHelloWorldControllerSpec extends AnyFlatSpec with Matchers {
-
-  private val fakeRequest = FakeRequest("GET", "/")
-
-  private val controller = new MicroserviceHelloWorldController(
-    FakeAuthActionProvider,
-    Helpers.stubControllerComponents(),
-    IORuntime.global
-  )
-
-  "GET /" should "return 200" in {
-    val result = controller.hello()(fakeRequest)
-    status(result) shouldBe OK
-    contentAsString(result) shouldBe "Hello world"
+class AccessCodeSpec extends AnyFlatSpec with Matchers {
+  "AccessCode.toString" should "redact the access code value" in {
+    AccessCode("1234").toString shouldBe "AccessCode(***)"
   }
 }

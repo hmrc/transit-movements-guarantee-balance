@@ -16,15 +16,30 @@
 
 package config
 
-import javax.inject.{Inject, Singleton}
+import io.lemonlabs.uri.AbsoluteUrl
+import io.lemonlabs.uri.UrlPath
 import play.api.Configuration
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
+
+import javax.inject.Inject
+import javax.inject.Singleton
+import scala.concurrent.duration.FiniteDuration
 
 @Singleton
 class AppConfig @Inject() (config: Configuration, servicesConfig: ServicesConfig) {
 
-  val authBaseUrl: String = servicesConfig.baseUrl("auth")
+  private lazy val eisRouterBaseUrl: AbsoluteUrl =
+    AbsoluteUrl.parse(servicesConfig.baseUrl("eis-router"))
+  private lazy val eisRouterPath: UrlPath =
+    UrlPath.parse(config.get[String]("microservice.services.eis-router.path"))
+  lazy val eisRouterUrl: AbsoluteUrl =
+    eisRouterBaseUrl.withPath(eisRouterPath)
 
-  val auditingEnabled: Boolean = config.get[Boolean]("auditing.enabled")
-  val graphiteHost: String     = config.get[String]("microservice.metrics.graphite.host")
+  lazy val enrolmentKey        = config.get[String]("auth.enrolmentKey")
+  lazy val enrolmentIdentifier = config.get[String]("auth.enrolmentIdentifier")
+
+  lazy val mongoBalanceRequestTtl: FiniteDuration =
+    config.get[FiniteDuration]("mongodb.balance-requests.ttl")
+
+  lazy val features = config.get[Map[String, Boolean]]("features")
 }
