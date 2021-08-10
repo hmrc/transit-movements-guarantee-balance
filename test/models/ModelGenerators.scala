@@ -82,7 +82,7 @@ trait ModelGenerators {
   implicit val arbBalanceRequestSuccess: Arbitrary[BalanceRequestSuccess] =
     Arbitrary {
       for {
-        balance <- arbitrary[BigDecimal].map(
+        balance <- Gen.chooseNum(BigDecimal(0), BigDecimal("9999999999999.99")).map(
           _.abs.setScale(2, scala.math.BigDecimal.RoundingMode.HALF_UP)
         )
         currencyCode <- Gen
