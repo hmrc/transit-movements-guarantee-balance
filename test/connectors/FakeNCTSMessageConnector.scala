@@ -17,7 +17,7 @@
 package connectors
 
 import cats.effect.IO
-import models.values.RequestId
+import models.values.BalanceId
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse
 
@@ -27,7 +27,7 @@ case class FakeNCTSMessageConnector(
   sendMessageResponse: IO[Either[UpstreamErrorResponse, Unit]] = IO.stub
 ) extends NCTSMessageConnector {
 
-  override def sendMessage(requestId: RequestId, message: Elem)(implicit
+  override def sendMessage(balanceId: BalanceId, message: Elem)(implicit
     hc: HeaderCarrier
   ): IO[Either[UpstreamErrorResponse, Unit]] =
     sendMessageResponse

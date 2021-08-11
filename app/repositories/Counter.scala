@@ -23,5 +23,5 @@ sealed abstract class Counter[A](val name: String, val fromValue: Int => A)
     with Serializable
 
 object Counter {
-  case object RequestId extends Counter[values.RequestId]("requestId", values.RequestId.apply)
+  case object BalanceId extends Counter[values.BalanceId]("balanceId", values.BalanceId.apply)
 }

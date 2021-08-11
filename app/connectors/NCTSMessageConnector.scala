@@ -21,7 +21,7 @@ import com.google.inject.ImplementedBy
 import config.AppConfig
 import models.MessageType
 import models.formats.CommonFormats.elemWrites
-import models.values.RequestId
+import models.values.BalanceId
 import play.api.http.ContentTypes
 import play.api.http.HeaderNames
 import runtime.IOFutures
@@ -35,7 +35,7 @@ import scala.xml.Elem
 
 @ImplementedBy(classOf[NCTSMessageConnectorImpl])
 trait NCTSMessageConnector {
-  def sendMessage(requestId: RequestId, message: Elem)(implicit
+  def sendMessage(balanceId: BalanceId, message: Elem)(implicit
     hc: HeaderCarrier
   ): IO[Either[UpstreamErrorResponse, Unit]]
 }
@@ -44,7 +44,7 @@ class NCTSMessageConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient
     extends NCTSMessageConnector
     with IOFutures {
 
-  def sendMessage(requestId: RequestId, message: Elem)(implicit
+  def sendMessage(balanceId: BalanceId, message: Elem)(implicit
     hc: HeaderCarrier
   ): IO[Either[UpstreamErrorResponse, Unit]] =
     IO.runFuture { implicit ec =>
@@ -53,7 +53,7 @@ class NCTSMessageConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient
       val headers = Seq(
         HeaderNames.ACCEPT       -> ContentTypes.JSON,
         HeaderNames.CONTENT_TYPE -> ContentTypes.XML,
-        "X-Message-Sender"       -> f"MDTP-GUA-${requestId.value}%023d-01",
+        "X-Message-Sender"       -> f"MDTP-GUA-${balanceId.value}%023d-01",
         "X-Message-Type"         -> MessageType.QueryOnGuarantees.code
       )
       http.POST[Elem, Either[UpstreamErrorResponse, Unit]](urlString, wrappedMessage, headers)

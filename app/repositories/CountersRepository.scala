@@ -17,7 +17,7 @@
 package repositories
 
 import cats.effect.IO
-import models.values.RequestId
+import models.values.BalanceId
 import org.mongodb.scala.Observable
 import org.mongodb.scala.model.Filters
 import org.mongodb.scala.model.FindOneAndUpdateOptions
@@ -78,8 +78,8 @@ class CountersRepository @Inject() (mongoComponent: MongoComponent)(implicit ec:
       )
   }
 
-  def nextRequestId: IO[RequestId] =
-    nextIdWithRetries(Counter.RequestId)
+  def nextBalanceId: IO[BalanceId] =
+    nextIdWithRetries(Counter.BalanceId)
 }
 
 object CountersRepository {

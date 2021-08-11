@@ -31,7 +31,7 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
   val clock = Clock.fixed(Instant.now, ZoneOffset.UTC)
 
   val pendingBalanceRequest = PendingBalanceRequest(
-    RequestId(1),
+    BalanceId(1),
     clock.instant().minusSeconds(60),
     completedAt = None,
     response = None

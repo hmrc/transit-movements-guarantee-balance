@@ -21,7 +21,7 @@ import config.AppConfig
 import models.BalanceRequestResponse
 import models.PendingBalanceRequest
 import models.formats.MongoFormats
-import models.values.RequestId
+import models.values.BalanceId
 import org.bson.codecs.configuration.CodecRegistries
 import org.mongodb.scala.MongoClient
 import org.mongodb.scala.MongoCollection
@@ -77,9 +77,9 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
         )
       )
 
-  def getBalanceRequest(requestId: RequestId): IO[Option[PendingBalanceRequest]] =
+  def getBalanceRequest(balanceId: BalanceId): IO[Option[PendingBalanceRequest]] =
     IO.observeFirstOption {
-      collection.find(Filters.eq("_id", requestId.value))
+      collection.find(Filters.eq("_id", balanceId.value))
     }
 
   def insertBalanceRequest(balanceRequest: PendingBalanceRequest): IO[Boolean] =
@@ -88,13 +88,13 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
     }.map(_.wasAcknowledged())
 
   def updateBalanceRequest(
-    requestId: RequestId,
+    balanceId: BalanceId,
     completedAt: Instant,
     response: BalanceRequestResponse
   ): IO[Option[PendingBalanceRequest]] =
     IO.observeFirstOption {
       collection.findOneAndUpdate(
-        Filters.eq("_id", requestId.value),
+        Filters.eq("_id", balanceId.value),
         Updates.combine(
           Updates.set("completedAt", completedAt),
           Updates.set("response", response)

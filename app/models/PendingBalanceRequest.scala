@@ -16,12 +16,12 @@
 
 package models
 
-import models.values.RequestId
+import models.values.BalanceId
 
 import java.time.Instant
 
 case class PendingBalanceRequest(
-  requestId: RequestId,
+  balanceId: BalanceId,
   requestedAt: Instant,
   completedAt: Option[Instant],
   response: Option[BalanceRequestResponse]

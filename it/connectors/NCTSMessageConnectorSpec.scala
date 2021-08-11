@@ -18,7 +18,7 @@ package connectors
 
 import cats.effect.unsafe.implicits.global
 import com.github.tomakehurst.wiremock.client.WireMock._
-import models.values.RequestId
+import models.values.BalanceId
 import org.scalatest.EitherValues
 import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -56,7 +56,7 @@ class NCTSMessageConnectorSpec
     )
 
     connector
-      .sendMessage(RequestId(1), <foo></foo>)
+      .sendMessage(BalanceId(1), <foo></foo>)
       .map { response =>
         response shouldBe a[Right[_, _]]
         response.value shouldBe (())
@@ -73,7 +73,7 @@ class NCTSMessageConnectorSpec
     )
 
     connector
-      .sendMessage(RequestId(1), <foo></foo>)
+      .sendMessage(BalanceId(1), <foo></foo>)
       .map { response =>
         response shouldBe a[Left[_, _]]
         inside(response.left.value) { case Upstream4xxResponse(response) =>
@@ -92,7 +92,7 @@ class NCTSMessageConnectorSpec
     )
 
     connector
-      .sendMessage(RequestId(1), <foo></foo>)
+      .sendMessage(BalanceId(1), <foo></foo>)
       .map { response =>
         response shouldBe a[Left[_, _]]
         inside(response.left.value) { case Upstream5xxResponse(response) =>
