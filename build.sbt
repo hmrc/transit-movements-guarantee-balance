@@ -6,7 +6,9 @@ val appName = "transit-movements-guarantee-balance"
 lazy val microservice = Project(appName, file("."))
   .configs(IntegrationTest)
   .enablePlugins(play.sbt.PlayScala, SbtDistributablesPlugin)
-  .disablePlugins(JUnitXmlReportPlugin) //Required to prevent https://github.com/scalatest/scalatest/issues/1427
+  .disablePlugins(
+    JUnitXmlReportPlugin
+  ) //Required to prevent https://github.com/scalatest/scalatest/issues/1427
   .settings(SbtDistributablesPlugin.publishingSettings)
   .settings(DefaultBuildSettings.integrationTestSettings())
   .settings(inThisBuild(buildSettings))
