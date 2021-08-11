@@ -14,26 +14,21 @@
  * limitations under the License.
  */
 
-package models.formats
+package connectors
 
-import cats.data.NonEmptyList
-import play.api.libs.functional.syntax._
-import play.api.libs.json.Format
-import play.api.libs.json.Writes
+import cats.effect.IO
+import models.values.RequestId
+import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.http.UpstreamErrorResponse
 
 import scala.xml.Elem
 
-object CommonFormats extends CommonFormats
+case class FakeNCTSMessageConnector(
+  sendMessageResponse: IO[Either[UpstreamErrorResponse, Unit]] = IO.stub
+) extends NCTSMessageConnector {
 
-trait CommonFormats {
-  implicit val elemWrites: Writes[Elem] =
-    Writes.of[String].contramap(_.toString)
-
-  implicit def nonEmptyListFormat[A: Format]: Format[NonEmptyList[A]] =
-    Format
-      .of[List[A]]
-      .inmap(
-        NonEmptyList.fromListUnsafe,
-        _.toList
-      )
+  override def sendMessage(requestId: RequestId, message: Elem)(implicit
+    hc: HeaderCarrier
+  ): IO[Either[UpstreamErrorResponse, Unit]] =
+    sendMessageResponse
 }
