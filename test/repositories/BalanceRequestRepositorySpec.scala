@@ -67,11 +67,11 @@ class BalanceRequestRepositorySpec
   it should "round trip pending balance requests" in forAll {
     balanceRequest: PendingBalanceRequest =>
       val assertion = for {
-        nextId <- idRepository.nextRequestId
-        request = balanceRequest.copy(requestId = nextId)
+        nextId <- idRepository.nextBalanceId
+        request = balanceRequest.copy(balanceId = nextId)
         acked     <- repository.insertBalanceRequest(request)
         _         <- if (!acked) IO(fail("Insert request was not acknowledged")) else IO.unit
-        retrieved <- repository.getBalanceRequest(request.requestId)
+        retrieved <- repository.getBalanceRequest(request.balanceId)
       } yield retrieved should contain(request)
 
       await(assertion.unsafeToFuture())
@@ -80,8 +80,8 @@ class BalanceRequestRepositorySpec
   it should "update balance requests with responses" in forAll {
     (balanceRequest: PendingBalanceRequest, response: BalanceRequestResponse) =>
       val assertion = for {
-        nextId <- idRepository.nextRequestId
-        request = balanceRequest.copy(requestId = nextId)
+        nextId <- idRepository.nextBalanceId
+        request = balanceRequest.copy(balanceId = nextId)
         acked <- repository.insertBalanceRequest(request)
         _     <- if (!acked) IO(fail("Insert request was not acknowledged")) else IO.unit
         completedAt = clock.instant().`with`(ChronoField.NANO_OF_SECOND, 0)

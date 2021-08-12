@@ -19,6 +19,7 @@ package models.formats
 import cats.data.NonEmptyList
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import play.api.libs.json.JsString
 import play.api.libs.json.Json
 
 class CommonFormatsSpec extends AnyFlatSpec with Matchers with CommonFormats {
@@ -33,8 +34,12 @@ class CommonFormatsSpec extends AnyFlatSpec with Matchers with CommonFormats {
   }
 
   it should "throw exception when the JSON array is empty" in {
-    intercept[IllegalArgumentException] {
+    assertThrows[IllegalArgumentException] {
       Json.arr().as[NonEmptyList[Int]]
     }
+  }
+
+  "CommonFormats.elemWrites" should "write XML Elem as String" in {
+    Json.toJson(<foo>1</foo>) shouldBe JsString("<foo>1</foo>")
   }
 }

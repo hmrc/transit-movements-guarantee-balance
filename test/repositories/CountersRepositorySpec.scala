@@ -17,7 +17,7 @@
 package repositories
 
 import cats.effect.unsafe.implicits.global
-import models.values.RequestId
+import models.values.BalanceId
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
@@ -39,26 +39,26 @@ class CountersRepositorySpec
     repository.collectionName shouldBe "counters"
   }
 
-  "CountersRepository.nextRequestId" should "return 1 when first initialised" in {
-    repository.nextRequestId.unsafeToFuture().futureValue shouldBe RequestId(1)
+  "CountersRepository.nextBalanceId" should "return 1 when first initialised" in {
+    repository.nextBalanceId.unsafeToFuture().futureValue shouldBe BalanceId(1)
   }
 
   it should "increment the next ID value on each subsequent call" in {
-    repository.nextRequestId.unsafeToFuture().futureValue shouldBe RequestId(1)
-    repository.nextRequestId.unsafeToFuture().futureValue shouldBe RequestId(2)
-    repository.nextRequestId.unsafeToFuture().futureValue shouldBe RequestId(3)
-    repository.nextRequestId.unsafeToFuture().futureValue shouldBe RequestId(4)
+    repository.nextBalanceId.unsafeToFuture().futureValue shouldBe BalanceId(1)
+    repository.nextBalanceId.unsafeToFuture().futureValue shouldBe BalanceId(2)
+    repository.nextBalanceId.unsafeToFuture().futureValue shouldBe BalanceId(3)
+    repository.nextBalanceId.unsafeToFuture().futureValue shouldBe BalanceId(4)
   }
 
   // Upsert intermittently fails due to https://jira.mongodb.org/browse/SERVER-14322
   // It should be fixed in MongoDB 4.2 by https://jira.mongodb.org/browse/SERVER-37124
   // In the meantime we have added retrying behaviour to this code
   it should "not produce duplicate ID values for concurrent calls" in {
-    val requests = for (_ <- 1 to 100) yield repository.nextRequestId.unsafeToFuture()
+    val requests = for (_ <- 1 to 100) yield repository.nextBalanceId.unsafeToFuture()
     val results  = Future.sequence(requests).futureValue
 
     val original     = results.toList.sortBy(_.value)
-    val deduplicated = results.toSet[RequestId].toList.sortBy(_.value)
+    val deduplicated = results.toSet[BalanceId].toList.sortBy(_.value)
 
     deduplicated shouldBe original
   }

@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
-package repositories
+package connectors
 
-import models.values
+import cats.effect.IO
+import models.values.BalanceId
+import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.http.UpstreamErrorResponse
 
-sealed abstract class Counter[A](val name: String, val fromValue: Int => A)
-    extends Product
-    with Serializable
+import scala.xml.Elem
 
-object Counter {
-  case object BalanceId extends Counter[values.BalanceId]("balanceId", values.BalanceId.apply)
+case class FakeNCTSMessageConnector(
+  sendMessageResponse: IO[Either[UpstreamErrorResponse, Unit]] = IO.stub
+) extends NCTSMessageConnector {
+
+  override def sendMessage(balanceId: BalanceId, message: Elem)(implicit
+    hc: HeaderCarrier
+  ): IO[Either[UpstreamErrorResponse, Unit]] =
+    sendMessageResponse
 }

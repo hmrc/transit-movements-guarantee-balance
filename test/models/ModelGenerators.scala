@@ -46,10 +46,10 @@ trait ModelGenerators {
   implicit val arbPendingBalanceRequest: Arbitrary[PendingBalanceRequest] =
     Arbitrary {
       for {
-        requestId   <- arbitrary[Int].map(RequestId.apply)
+        balanceId   <- arbitrary[Int].map(BalanceId.apply)
         requestedAt <- arbitrary[Instant]
       } yield PendingBalanceRequest(
-        requestId,
+        balanceId,
         requestedAt,
         completedAt = None,
         response = None

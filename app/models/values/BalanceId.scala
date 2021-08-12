@@ -19,9 +19,9 @@ package models.values
 import play.api.libs.json.Format
 import play.api.libs.json.Json
 
-case class RequestId(value: Int) extends AnyVal
+case class BalanceId(value: Int) extends AnyVal
 
-object RequestId {
-  implicit val requestIdFormat: Format[RequestId] =
-    Json.valueFormat[RequestId]
+object BalanceId {
+  implicit val balanceIdFormat: Format[BalanceId] =
+    Json.valueFormat[BalanceId]
 }
