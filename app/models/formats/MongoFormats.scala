@@ -31,11 +31,22 @@ import java.time.Instant
 
 object MongoFormats extends MongoFormats
 
-trait MongoFormats extends CommonFormats with MongoJavatimeFormats.Implicits {
+trait MongoFormats
+    extends CommonFormats
+    with MongoBinaryFormats
+    with MongoUuidFormats
+    with MongoJavatimeFormats.Implicits {
+
   implicit val functionalErrorFormat: Format[FunctionalError] =
     Json.format[FunctionalError]
   implicit val xmlErrorFormat: Format[XmlError] =
     Json.format[XmlError]
+
+  implicit val balanceIdFormat: Format[BalanceId] =
+    Json.valueFormat[BalanceId]
+
+  implicit val messageSenderFormat: Format[MessageSender] =
+    Json.valueFormat[MessageSender]
 
   def withStatusField[A <: BalanceRequestResponse](format: OWrites[A], status: String): OWrites[A] =
     format.transform { (obj: JsObject) =>
@@ -66,10 +77,18 @@ trait MongoFormats extends CommonFormats with MongoJavatimeFormats.Implicits {
     .and[BalanceRequestFunctionalError](BalanceRequestResponseStatus.FunctionalError)
     .format
 
-  implicit val pendingBalanceRequestFormat: OFormat[PendingBalanceRequest] = (
+  private val balanceRequestFormat: OFormat[PendingBalanceRequest] = (
     (__ \ "_id").format[BalanceId] and
       (__ \ "requestedAt").format[Instant] and
       (__ \ "completedAt").formatNullable[Instant] and
       (__ \ "response").formatNullable[BalanceRequestResponse]
   )(PendingBalanceRequest.apply _, unlift(PendingBalanceRequest.unapply _))
+
+  implicit val pendingBalanceRequestWrites: OWrites[PendingBalanceRequest] =
+    OWrites.transform(balanceRequestFormat) { case (request, obj) =>
+      obj ++ Json.obj("messageSender" -> request.balanceId.messageSender)
+    }
+
+  implicit val pendingBalanceRequestFormat: OFormat[PendingBalanceRequest] =
+    OFormat(balanceRequestFormat, pendingBalanceRequestWrites)
 }

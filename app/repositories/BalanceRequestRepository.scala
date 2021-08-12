@@ -22,6 +22,9 @@ import models.BalanceRequestResponse
 import models.PendingBalanceRequest
 import models.formats.MongoFormats
 import models.values.BalanceId
+import models.values.MessageSender
+import org.bson.UuidRepresentation
+import org.bson.codecs.UuidCodec
 import org.bson.codecs.configuration.CodecRegistries
 import org.mongodb.scala.MongoClient
 import org.mongodb.scala.MongoCollection
@@ -32,15 +35,22 @@ import org.mongodb.scala.model.IndexOptions
 import org.mongodb.scala.model.Indexes
 import org.mongodb.scala.model.ReturnDocument
 import org.mongodb.scala.model.Updates
+import play.api.Logging
+import retry.RetryPolicies
+import retry.syntax.all._
+import runtime.RetryLogging
 import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.MongoUtils
 import uk.gov.hmrc.mongo.play.json.Codecs
 import uk.gov.hmrc.mongo.play.json.CollectionFactory
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import java.time.Instant
 import javax.inject.Inject
+import javax.inject.Singleton
 import scala.concurrent.ExecutionContext
 
+@Singleton
 class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appConfig: AppConfig)(
   implicit ec: ExecutionContext
 ) extends PlayMongoRepository[PendingBalanceRequest](
@@ -48,6 +58,11 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
       collectionName = BalanceRequestRepository.collectionName,
       domainFormat = MongoFormats.pendingBalanceRequestFormat,
       indexes = Seq(
+        IndexModel(
+          Indexes.ascending("messageSender"),
+          IndexOptions()
+            .background(false)
+        ),
         IndexModel(
           Indexes.descending("requestedAt"),
           IndexOptions()
@@ -59,7 +74,8 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
         )
       )
     )
-    with IOObservables {
+    with IOObservables
+    with Logging {
 
   override lazy val collection: MongoCollection[PendingBalanceRequest] =
     CollectionFactory
@@ -68,6 +84,7 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
         CodecRegistries.fromRegistries(
           CodecRegistries.fromCodecs(
             Codecs.playFormatCodec(domainFormat),
+            new UuidCodec(UuidRepresentation.STANDARD),
             Codecs.playFormatCodec(MongoFormats.balanceRequestResponseFormat),
             Codecs.playFormatCodec(MongoFormats.balanceRequestSuccessFormat),
             Codecs.playFormatCodec(MongoFormats.balanceRequestFunctionalErrorFormat),
@@ -77,24 +94,49 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
         )
       )
 
+  private def isDuplicateKey(exc: Throwable) = exc match {
+    case MongoUtils.DuplicateKey(_) => IO.pure(true)
+    case _                          => IO.pure(false)
+  }
+
   def getBalanceRequest(balanceId: BalanceId): IO[Option[PendingBalanceRequest]] =
     IO.observeFirstOption {
       collection.find(Filters.eq("_id", balanceId.value))
     }
 
-  def insertBalanceRequest(balanceRequest: PendingBalanceRequest): IO[Boolean] =
-    IO.observeFirst {
-      collection.insertOne(balanceRequest)
-    }.map(_.wasAcknowledged())
+  def insertBalanceRequest(requestedAt: Instant): IO[BalanceId] = {
+    val insertResult = BalanceId.next.flatMap { id =>
+      val pendingRequest = PendingBalanceRequest(
+        balanceId = id,
+        requestedAt = requestedAt,
+        completedAt = None,
+        response = None
+      )
+
+      IO.observeFirst {
+        collection.insertOne(pendingRequest)
+      }
+    }
+
+    insertResult
+      .retryingOnSomeErrors(
+        isWorthRetrying = isDuplicateKey,
+        policy = RetryPolicies.limitRetries(3),
+        onError = RetryLogging.log("inserting balance request", logger)
+      )
+      .map { result =>
+        BalanceId(result.getInsertedId.asBinary.asUuid)
+      }
+  }
 
   def updateBalanceRequest(
-    balanceId: BalanceId,
+    messageSender: MessageSender,
     completedAt: Instant,
     response: BalanceRequestResponse
   ): IO[Option[PendingBalanceRequest]] =
     IO.observeFirstOption {
       collection.findOneAndUpdate(
-        Filters.eq("_id", balanceId.value),
+        Filters.eq("messageSender", messageSender.value),
         Updates.combine(
           Updates.set("completedAt", completedAt),
           Updates.set("response", response)

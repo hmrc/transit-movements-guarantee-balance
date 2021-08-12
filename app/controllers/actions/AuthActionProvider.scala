@@ -23,12 +23,14 @@ import play.api.mvc.AnyContent
 import play.api.mvc.DefaultActionBuilder
 
 import javax.inject.Inject
+import javax.inject.Singleton
 
 @ImplementedBy(classOf[AuthActionProviderImpl])
 trait AuthActionProvider {
   def apply(): ActionBuilder[AuthenticatedRequest, AnyContent]
 }
 
+@Singleton
 class AuthActionProviderImpl @Inject() (
   buildDefault: DefaultActionBuilder,
   authenticate: AuthAction

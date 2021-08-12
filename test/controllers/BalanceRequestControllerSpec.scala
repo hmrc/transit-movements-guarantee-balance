@@ -18,25 +18,38 @@ package controllers
 
 import cats.effect.unsafe.IORuntime
 import controllers.actions.FakeAuthActionProvider
+import models.request.BalanceRequest
+import models.values._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.test.FakeRequest
 import play.api.test.Helpers
 import play.api.test.Helpers._
 
-class MicroserviceHelloWorldControllerSpec extends AnyFlatSpec with Matchers {
+import java.util.UUID
 
-  private val fakeRequest = FakeRequest("GET", "/")
+class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
-  private val controller = new MicroserviceHelloWorldController(
+  val controller = new BalanceRequestController(
     FakeAuthActionProvider,
     Helpers.stubControllerComponents(),
     IORuntime.global
   )
 
-  "GET /" should "return 200" in {
-    val result = controller.hello()(fakeRequest)
-    status(result) shouldBe OK
-    contentAsString(result) shouldBe "Hello world"
+  "BalanceRequestController.submitBalanceRequest" should "return 202 when successful" in {
+    val balanceRequest = BalanceRequest(
+      TaxIdentifier("GB12345678900"),
+      GuaranteeReference("05DE3300BE0001067A001017"),
+      AccessCode("1234")
+    )
+
+    val result = controller.submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+
+    status(result) shouldBe ACCEPTED
+  }
+
+  "BalanceRequestController.getBalanceRequest" should "return 404 when the balance request is not found" in {
+    val result = controller.getBalanceRequest(BalanceId(UUID.randomUUID()))(FakeRequest())
+    status(result) shouldBe NOT_FOUND
   }
 }

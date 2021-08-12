@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package repositories
+package models.values
 
-import models.values
+case class MessageSender(value: Array[Byte]) extends AnyVal {
+  def hexString = {
+    val sb = new StringBuilder
+    for (byte <- value)
+      sb.append(f"${byte}%02x")
 
-sealed abstract class Counter[A](val name: String, val fromValue: Int => A)
-    extends Product
-    with Serializable
-
-object Counter {
-  case object BalanceId extends Counter[values.BalanceId]("balanceId", values.BalanceId.apply)
+    sb.toString
+  }
 }

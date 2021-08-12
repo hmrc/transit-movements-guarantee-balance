@@ -1,3 +1,4 @@
+import play.sbt.routes.RoutesKeys
 import scoverage.ScoverageKeys
 import uk.gov.hmrc.DefaultBuildSettings
 
@@ -23,7 +24,10 @@ lazy val microservice = Project(appName, file("."))
     resolvers += Resolver.jcenterRepo,
     semanticdbEnabled := true,
     semanticdbVersion := scalafixSemanticdb.revision,
-    libraryDependencies ++= AppDependencies.compile ++ AppDependencies.test
+    libraryDependencies ++= AppDependencies.compile ++ AppDependencies.test,
+    RoutesKeys.routesImport ++= Seq(
+      "models.values._"
+    )
   )
 
 lazy val buildSettings = Def.settings(
