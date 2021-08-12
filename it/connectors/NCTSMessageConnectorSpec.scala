@@ -29,6 +29,7 @@ import play.api.test.Helpers._
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse._
 
+import java.util.UUID
 import scala.util.Right
 
 class NCTSMessageConnectorSpec
@@ -42,6 +43,9 @@ class NCTSMessageConnectorSpec
 
   implicit val hc = HeaderCarrier()
 
+  val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+  val balanceId = BalanceId(uuid)
+
   "NCTSConnector" should "send XML message to downstream component" in {
     val connector = injector.instanceOf[NCTSMessageConnector]
 
@@ -49,14 +53,14 @@ class NCTSMessageConnectorSpec
       post(urlEqualTo("/movements/messages"))
         .withHeader(HeaderNames.ACCEPT, equalTo(ContentTypes.JSON))
         .withHeader(HeaderNames.CONTENT_TYPE, equalTo(ContentTypes.XML))
-        .withHeader("X-Message-Sender", equalTo("MDTP-GUA-00000000000000000000001-01"))
+        .withHeader("X-Message-Sender", equalTo("MDTP-GUA-22b9899e24ee48e6a18997d1"))
         .withHeader("X-Message-Type", equalTo("IE034"))
         .withRequestBody(containing("<transitRequest><foo></foo></transitRequest>"))
         .willReturn(aResponse().withStatus(ACCEPTED))
     )
 
     connector
-      .sendMessage(BalanceId(1), <foo></foo>)
+      .sendMessage(balanceId, <foo></foo>)
       .map { response =>
         response shouldBe a[Right[_, _]]
         response.value shouldBe (())
@@ -73,7 +77,7 @@ class NCTSMessageConnectorSpec
     )
 
     connector
-      .sendMessage(BalanceId(1), <foo></foo>)
+      .sendMessage(balanceId, <foo></foo>)
       .map { response =>
         response shouldBe a[Left[_, _]]
         inside(response.left.value) { case Upstream4xxResponse(response) =>
@@ -92,7 +96,7 @@ class NCTSMessageConnectorSpec
     )
 
     connector
-      .sendMessage(BalanceId(1), <foo></foo>)
+      .sendMessage(balanceId, <foo></foo>)
       .map { response =>
         response shouldBe a[Left[_, _]]
         inside(response.left.value) { case Upstream5xxResponse(response) =>

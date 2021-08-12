@@ -22,6 +22,7 @@ import config.AppConfig
 import models.BalanceRequestResponse
 import models.ModelGenerators
 import models.PendingBalanceRequest
+import models.values.BalanceId
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -32,9 +33,11 @@ import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
 import java.time.Clock
+import java.time.Instant
 import java.time.ZoneOffset
 import java.time.temporal.ChronoField
 import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
 class BalanceRequestRepositorySpec
     extends AnyFlatSpec
@@ -53,8 +56,6 @@ class BalanceRequestRepositorySpec
     mkAppConfig(Configuration("mongodb.balance-requests.ttl" -> "5 minutes"))
   )
 
-  lazy val idRepository = new CountersRepository(mongoComponent)
-
   def mkAppConfig(config: Configuration) = {
     val servicesConfig = new ServicesConfig(config)
     new AppConfig(config, servicesConfig)
@@ -64,33 +65,58 @@ class BalanceRequestRepositorySpec
     repository.collectionName shouldBe "balance-requests"
   }
 
-  it should "round trip pending balance requests" in forAll {
-    balanceRequest: PendingBalanceRequest =>
+  it should "round trip pending balance requests" in forAll { requestedAt: Instant =>
+    val assertion = for {
+      id <- repository.insertBalanceRequest(requestedAt)
+
+      expected = PendingBalanceRequest(
+        balanceId = id,
+        requestedAt = requestedAt,
+        completedAt = None,
+        response = None
+      )
+
+      actual <- repository.getBalanceRequest(id)
+
+    } yield actual should contain(expected)
+
+    await(assertion.unsafeToFuture())
+  }
+
+  it should "update balance requests with responses" in forAll {
+    (requestedAt: Instant, response: BalanceRequestResponse) =>
       val assertion = for {
-        nextId <- idRepository.nextBalanceId
-        request = balanceRequest.copy(balanceId = nextId)
-        acked     <- repository.insertBalanceRequest(request)
-        _         <- if (!acked) IO(fail("Insert request was not acknowledged")) else IO.unit
-        retrieved <- repository.getBalanceRequest(request.balanceId)
-      } yield retrieved should contain(request)
+        id <- repository.insertBalanceRequest(requestedAt)
+
+        completedAt = clock.instant().`with`(ChronoField.NANO_OF_SECOND, 0)
+
+        expected = PendingBalanceRequest(
+          balanceId = id,
+          requestedAt = requestedAt,
+          completedAt = Some(completedAt),
+          response = Some(response)
+        )
+
+        actual <- repository.updateBalanceRequest(
+          id.messageSender,
+          completedAt,
+          response
+        )
+
+        _ <-
+          if (actual.isEmpty) IO(fail("The balance request to update was not found")) else IO.unit
+
+      } yield actual should contain(expected)
 
       await(assertion.unsafeToFuture())
   }
 
-  it should "update balance requests with responses" in forAll {
-    (balanceRequest: PendingBalanceRequest, response: BalanceRequestResponse) =>
-      val assertion = for {
-        nextId <- idRepository.nextBalanceId
-        request = balanceRequest.copy(balanceId = nextId)
-        acked <- repository.insertBalanceRequest(request)
-        _     <- if (!acked) IO(fail("Insert request was not acknowledged")) else IO.unit
-        completedAt = clock.instant().`with`(ChronoField.NANO_OF_SECOND, 0)
-        expected    = request.copy(completedAt = Some(completedAt), response = Some(response))
-        actual <- repository.updateBalanceRequest(nextId, completedAt, response)
-        _ <-
-          if (actual.isEmpty) IO(fail("The balance request to update was not found")) else IO.unit
-      } yield actual should contain(expected)
-
-      await(assertion.unsafeToFuture())
+  it should "handle concurrent calls without producing duplicate IDs" in {
+    val now          = clock.instant()
+    val requests     = for (_ <- 1 to 100) yield repository.insertBalanceRequest(now).unsafeToFuture()
+    val results      = Future.sequence(requests).futureValue
+    val original     = results.toList.sortBy(_.value)
+    val deduplicated = results.toSet[BalanceId].toList.sortBy(_.value)
+    deduplicated shouldBe original
   }
 }

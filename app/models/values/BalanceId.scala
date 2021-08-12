@@ -16,12 +16,61 @@
 
 package models.values
 
-import play.api.libs.json.Format
-import play.api.libs.json.Json
+import cats.effect.IO
 
-case class BalanceId(value: Int) extends AnyVal
+import java.nio.ByteBuffer
+import java.time.Instant
+import java.util.UUID
+
+case class BalanceId(value: UUID) extends AnyVal {
+
+  /** The message sender fields of the NCTS Phase 4 spec are limited to 35 characters.
+    * This means that we cannot use a full UUID in these fields.
+    * This method returns only the initial 12 bytes of the balance ID for this purpose.
+    *
+    * @return the first 12 bytes of the UUID as a MessageSender value
+    */
+  def messageSender: MessageSender = {
+    val bottom4Mask = 0xffffffffL
+    val first4Bytes = (value.getLeastSignificantBits >> 32) & bottom4Mask
+    val buffer      = ByteBuffer.wrap(new Array[Byte](12))
+    buffer.putLong(value.getMostSignificantBits)
+    buffer.putInt(first4Bytes.intValue)
+    MessageSender(buffer.array())
+  }
+}
 
 object BalanceId {
-  implicit val balanceIdFormat: Format[BalanceId] =
-    Json.valueFormat[BalanceId]
+
+  /** Produces a sequential balance ID from a random UUID.
+    *
+    * This balance ID consists of a standard version 4 UUID,
+    * with the first 32 bits replaced by the epoch second.
+    *
+    * @return an IO action which produces a new balance ID
+    */
+  def next: IO[BalanceId] =
+    for {
+      instant <- IO.realTimeInstant
+      uuid    <- IO(UUID.randomUUID)
+    } yield create(instant, uuid)
+
+  /** Produces a sequential balance ID from the given UUID.
+    *
+    * This balance ID consists of a standard version 4 UUID,
+    * with the first 32 bits replaced by the epoch second.
+    *
+    * @param instant The instant to use for the initial 32 bits
+    * @param uuid The UUID to use for the rest of the balance ID
+    * @return an IO action which produces a new balance ID
+    */
+  def create(instant: Instant, uuid: UUID): BalanceId = {
+    val timeComponent   = instant.getEpochSecond << 32
+    val bottom8Mask     = 0xffffffffL
+    val randomComponent = uuid.getMostSignificantBits & bottom8Mask
+    val newHighBytes    = timeComponent | randomComponent
+    val newLowBytes     = uuid.getLeastSignificantBits
+    val squuid          = new UUID(newHighBytes, newLowBytes)
+    BalanceId(squuid)
+  }
 }

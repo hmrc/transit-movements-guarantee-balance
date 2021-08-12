@@ -23,9 +23,11 @@ import play.api.inject.ApplicationLifecycle
 
 import javax.inject.Inject
 import javax.inject.Provider
+import javax.inject.Singleton
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
+@Singleton
 class IORuntimeProvider @Inject() (lifecycle: ApplicationLifecycle, system: ActorSystem)(implicit
   compute: ExecutionContext
 ) extends Provider[IORuntime] {

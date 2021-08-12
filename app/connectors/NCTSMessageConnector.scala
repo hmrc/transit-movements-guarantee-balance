@@ -31,6 +31,7 @@ import uk.gov.hmrc.http.HttpReads.Implicits._
 import uk.gov.hmrc.http.UpstreamErrorResponse
 
 import javax.inject.Inject
+import javax.inject.Singleton
 import scala.xml.Elem
 
 @ImplementedBy(classOf[NCTSMessageConnectorImpl])
@@ -40,6 +41,7 @@ trait NCTSMessageConnector {
   ): IO[Either[UpstreamErrorResponse, Unit]]
 }
 
+@Singleton
 class NCTSMessageConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient)
     extends NCTSMessageConnector
     with IOFutures {
@@ -53,7 +55,7 @@ class NCTSMessageConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient
       val headers = Seq(
         HeaderNames.ACCEPT       -> ContentTypes.JSON,
         HeaderNames.CONTENT_TYPE -> ContentTypes.XML,
-        "X-Message-Sender"       -> f"MDTP-GUA-${balanceId.value}%023d-01",
+        "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageSender.hexString}",
         "X-Message-Type"         -> MessageType.QueryOnGuarantees.code
       )
       http.POST[Elem, Either[UpstreamErrorResponse, Unit]](urlString, wrappedMessage, headers)

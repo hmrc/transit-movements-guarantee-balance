@@ -26,12 +26,16 @@ import play.api.libs.json.Json
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.UUID
 
 class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
   val clock = Clock.fixed(Instant.now, ZoneOffset.UTC)
 
+  val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+  val balanceId = BalanceId(uuid)
+
   val pendingBalanceRequest = PendingBalanceRequest(
-    BalanceId(1),
+    balanceId,
     clock.instant().minusSeconds(60),
     completedAt = None,
     response = None
@@ -40,9 +44,16 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
   def date(inst: Instant) =
     Json.obj(s"$$date" -> Json.obj("$numberLong" -> inst.toEpochMilli().toString))
 
+  def binary(base64: String, subType: String = "00") =
+    Json.obj(s"$$binary" -> Json.obj("base64" -> base64, "subType" -> subType))
+
+  def uuid(base64: String) =
+    binary(base64, subType = "04")
+
   val pendingBalanceRequestJson = Json.obj(
-    "_id"         -> 1,
-    "requestedAt" -> date(clock.instant().minusSeconds(60))
+    "_id"           -> uuid(base64 = "IrmJniTuSOahiZfR9FORxA=="),
+    "messageSender" -> binary(base64 = "IrmJniTuSOahiZfR"),
+    "requestedAt"   -> date(clock.instant().minusSeconds(60))
   )
 
   val successfulBalanceRequest = pendingBalanceRequest.copy(

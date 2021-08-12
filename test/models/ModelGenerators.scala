@@ -28,6 +28,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.UUID
 
 trait ModelGenerators {
   def clock: Clock
@@ -46,7 +47,7 @@ trait ModelGenerators {
   implicit val arbPendingBalanceRequest: Arbitrary[PendingBalanceRequest] =
     Arbitrary {
       for {
-        balanceId   <- arbitrary[Int].map(BalanceId.apply)
+        balanceId   <- arbitrary[UUID].map(BalanceId.apply)
         requestedAt <- arbitrary[Instant]
       } yield PendingBalanceRequest(
         balanceId,
