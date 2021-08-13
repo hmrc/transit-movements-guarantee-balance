@@ -14,15 +14,29 @@
  * limitations under the License.
  */
 
-package models
+package models.values
 
-import org.xml.sax.SAXParseException
+import cats.effect.IO
 
-case class SchemaValidationError(lineNumber: Int, columnNumber: Int, message: String) {
-  def format: String = s"$lineNumber:$columnNumber $message"
+import java.security.SecureRandom
+
+case class UniqueReference(value: Array[Byte]) extends AnyVal {
+  def hexString = {
+    val sb = new StringBuilder
+    for (byte <- value)
+      sb.append(f"${byte}%02x")
+
+    sb.toString
+  }
 }
 
-object SchemaValidationError {
-  def fromSaxParseException(ex: SAXParseException) =
-    SchemaValidationError(ex.getLineNumber, ex.getColumnNumber, ex.getMessage)
+object UniqueReference {
+  private val random = new SecureRandom
+
+  def next: IO[UniqueReference] =
+    IO.blocking {
+      val bytes = new Array[Byte](7)
+      random.nextBytes(bytes)
+      UniqueReference(bytes)
+    }
 }

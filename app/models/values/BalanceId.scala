@@ -19,6 +19,7 @@ package models.values
 import cats.effect.IO
 
 import java.nio.ByteBuffer
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
@@ -47,12 +48,13 @@ object BalanceId {
     * This balance ID consists of a standard version 4 UUID,
     * with the first 32 bits replaced by the epoch second.
     *
+    * @param clock The clock to use to retrieve the system time
     * @return an IO action which produces a new balance ID
     */
-  def next: IO[BalanceId] =
+  def next(clock: Clock): IO[BalanceId] =
     for {
-      instant <- IO.realTimeInstant
-      uuid    <- IO(UUID.randomUUID)
+      instant <- IO(clock.instant())
+      uuid    <- IO.blocking(UUID.randomUUID)
     } yield create(instant, uuid)
 
   /** Produces a sequential balance ID from the given UUID.
@@ -62,7 +64,7 @@ object BalanceId {
     *
     * @param instant The instant to use for the initial 32 bits
     * @param uuid The UUID to use for the rest of the balance ID
-    * @return an IO action which produces a new balance ID
+    * @return a new balance ID
     */
   def create(instant: Instant, uuid: UUID): BalanceId = {
     val timeComponent   = instant.getEpochSecond << 32

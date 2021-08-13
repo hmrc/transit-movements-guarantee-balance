@@ -18,29 +18,44 @@ package controllers
 
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
+import cats.syntax.all._
 import controllers.actions.AuthActionProvider
 import controllers.actions.IOActions
+import models.formats.HttpFormats
 import models.request.BalanceRequest
 import models.values.BalanceId
+import play.api.libs.json.Json
 import play.api.mvc.Action
 import play.api.mvc.AnyContent
 import play.api.mvc.ControllerComponents
+import services.BalanceRequestService
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import javax.inject.Inject
 import javax.inject.Singleton
+import scala.util.control.NonFatal
 
 @Singleton
 class BalanceRequestController @Inject() (
   authenticate: AuthActionProvider,
+  service: BalanceRequestService,
   cc: ControllerComponents,
   val runtime: IORuntime
 ) extends BackendController(cc)
-    with IOActions {
+    with IOActions
+    with HttpFormats {
 
   def submitBalanceRequest: Action[BalanceRequest] =
-    authenticate().io(parse.json[BalanceRequest]) { request =>
-      IO.pure(Accepted)
+    authenticate().io(parse.json[BalanceRequest]) { implicit request =>
+      service
+        .submitBalanceRequest(request.body)
+        .map {
+          case Left(error)      => Status(error.statusCode)(error.message)
+          case Right(balanceId) => Accepted(Json.toJson(balanceId))
+        }
+        .recover { case NonFatal(_) =>
+          InternalServerError("Internal server error")
+        }
     }
 
   def getBalanceRequest(id: BalanceId): Action[AnyContent] =

@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-package models
+package models.formats
 
-import org.xml.sax.SAXParseException
+import models.values._
+import play.api.libs.json.Format
+import play.api.libs.json.Json
 
-case class SchemaValidationError(lineNumber: Int, columnNumber: Int, message: String) {
-  def format: String = s"$lineNumber:$columnNumber $message"
-}
-
-object SchemaValidationError {
-  def fromSaxParseException(ex: SAXParseException) =
-    SchemaValidationError(ex.getLineNumber, ex.getColumnNumber, ex.getMessage)
+trait HttpFormats {
+  implicit val balanceIdFormat: Format[BalanceId] =
+    Json.valueFormat[BalanceId]
 }

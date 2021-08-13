@@ -51,9 +51,10 @@ class BalanceRequestRepositorySpec
   implicit val ec    = ExecutionContext.global
   override val clock = Clock.tickSeconds(ZoneOffset.UTC)
 
-  override lazy val repository = new BalanceRequestRepository(
+  override lazy val repository = new BalanceRequestRepositoryImpl(
     mongoComponent,
-    mkAppConfig(Configuration("mongodb.balance-requests.ttl" -> "5 minutes"))
+    mkAppConfig(Configuration("mongodb.balance-requests.ttl" -> "5 minutes")),
+    clock
   )
 
   def mkAppConfig(config: Configuration) = {

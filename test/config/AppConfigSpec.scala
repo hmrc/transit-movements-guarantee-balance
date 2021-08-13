@@ -71,4 +71,15 @@ class AppConfigSpec extends AnyFlatSpec with Matchers {
 
     appConfig.features shouldBe Map("fooBar" -> true, "bazQuu" -> false)
   }
+
+  it should "recognise self-check feature config" in {
+    val appConfigCheckEnabled = mkAppConfig(Configuration("features.self-check" -> "true"))
+    appConfigCheckEnabled.selfCheck shouldBe true
+
+    val appConfigCheckDisabled = mkAppConfig(Configuration("features.self-check" -> "false"))
+    appConfigCheckDisabled.selfCheck shouldBe false
+
+    val appConfigCheckImplicitlyDisabled = mkAppConfig(Configuration())
+    appConfigCheckImplicitlyDisabled.selfCheck shouldBe false
+  }
 }

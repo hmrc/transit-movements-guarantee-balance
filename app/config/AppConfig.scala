@@ -41,5 +41,7 @@ class AppConfig @Inject() (config: Configuration, servicesConfig: ServicesConfig
   lazy val mongoBalanceRequestTtl: FiniteDuration =
     config.get[FiniteDuration]("mongodb.balance-requests.ttl")
 
-  lazy val features = config.get[Map[String, Boolean]]("features")
+  lazy val features = config.getOptional[Map[String, Boolean]]("features").getOrElse(Map.empty)
+
+  lazy val selfCheck = features.get("self-check").getOrElse(false)
 }

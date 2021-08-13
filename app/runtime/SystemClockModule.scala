@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-package models
+package runtime
 
-import org.xml.sax.SAXParseException
+import play.api.inject.SimpleModule
+import play.api.inject.bind
 
-case class SchemaValidationError(lineNumber: Int, columnNumber: Int, message: String) {
-  def format: String = s"$lineNumber:$columnNumber $message"
-}
+import java.time.Clock
 
-object SchemaValidationError {
-  def fromSaxParseException(ex: SAXParseException) =
-    SchemaValidationError(ex.getLineNumber, ex.getColumnNumber, ex.getMessage)
-}
+class SystemClockModule
+    extends SimpleModule((_, _) => Seq(bind[Clock].toInstance(Clock.systemUTC())))
