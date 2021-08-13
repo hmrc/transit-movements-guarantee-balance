@@ -17,6 +17,7 @@
 package repositories
 
 import cats.effect.IO
+import com.google.inject.ImplementedBy
 import config.AppConfig
 import models.BalanceRequestResponse
 import models.PendingBalanceRequest
@@ -45,14 +46,32 @@ import uk.gov.hmrc.mongo.play.json.Codecs
 import uk.gov.hmrc.mongo.play.json.CollectionFactory
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
+import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import scala.concurrent.ExecutionContext
 
+@ImplementedBy(classOf[BalanceRequestRepositoryImpl])
+trait BalanceRequestRepository {
+  def getBalanceRequest(balanceId: BalanceId): IO[Option[PendingBalanceRequest]]
+
+  def insertBalanceRequest(requestedAt: Instant): IO[BalanceId]
+
+  def updateBalanceRequest(
+    messageSender: MessageSender,
+    completedAt: Instant,
+    response: BalanceRequestResponse
+  ): IO[Option[PendingBalanceRequest]]
+}
+
 @Singleton
-class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appConfig: AppConfig)(
-  implicit ec: ExecutionContext
+class BalanceRequestRepositoryImpl @Inject() (
+  mongoComponent: MongoComponent,
+  appConfig: AppConfig,
+  clock: Clock
+)(implicit
+  ec: ExecutionContext
 ) extends PlayMongoRepository[PendingBalanceRequest](
       mongoComponent = mongoComponent,
       collectionName = BalanceRequestRepository.collectionName,
@@ -74,6 +93,7 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
         )
       )
     )
+    with BalanceRequestRepository
     with IOObservables
     with Logging {
 
@@ -105,7 +125,7 @@ class BalanceRequestRepository @Inject() (mongoComponent: MongoComponent, appCon
     }
 
   def insertBalanceRequest(requestedAt: Instant): IO[BalanceId] = {
-    val insertResult = BalanceId.next.flatMap { id =>
+    val insertResult = BalanceId.next(clock).flatMap { id =>
       val pendingRequest = PendingBalanceRequest(
         balanceId = id,
         requestedAt = requestedAt,

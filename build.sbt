@@ -27,6 +27,9 @@ lazy val microservice = Project(appName, file("."))
     libraryDependencies ++= AppDependencies.compile ++ AppDependencies.test,
     RoutesKeys.routesImport ++= Seq(
       "models.values._"
+    ),
+    javaOptions ++= Seq(
+      "-Djdk.xml.maxOccurLimit=10000"
     )
   )
 

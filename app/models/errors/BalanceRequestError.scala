@@ -14,15 +14,25 @@
  * limitations under the License.
  */
 
-package models
+package models.errors
 
-import org.xml.sax.SAXParseException
-
-case class SchemaValidationError(lineNumber: Int, columnNumber: Int, message: String) {
-  def format: String = s"$lineNumber:$columnNumber $message"
+sealed abstract class BalanceRequestError extends Product with Serializable {
+  def statusCode: Int
+  def message: String
 }
 
-object SchemaValidationError {
-  def fromSaxParseException(ex: SAXParseException) =
-    SchemaValidationError(ex.getLineNumber, ex.getColumnNumber, ex.getMessage)
+case class BadRequestError(
+  message: String,
+  errors: List[BalanceRequestError] = List.empty
+) extends BalanceRequestError {
+  def statusCode: Int = 400
+}
+
+case class UpstreamServiceError(message: String = "Internal server error")
+    extends BalanceRequestError {
+  def statusCode: Int = 500
+}
+case class InternalServiceError(message: String = "Internal server error")
+    extends BalanceRequestError {
+  def statusCode: Int = 500
 }

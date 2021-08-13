@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package models
+package models.errors
 
-import org.xml.sax.SAXParseException
+import cats.data.NonEmptyList
+import models.SchemaValidationError
 
-case class SchemaValidationError(lineNumber: Int, columnNumber: Int, message: String) {
-  def format: String = s"$lineNumber:$columnNumber $message"
-}
-
-object SchemaValidationError {
-  def fromSaxParseException(ex: SAXParseException) =
-    SchemaValidationError(ex.getLineNumber, ex.getColumnNumber, ex.getMessage)
-}
+case class SelfCheckError(errors: NonEmptyList[SchemaValidationError])
+    extends RuntimeException(
+      s"""|Errors while validating generated IE034 message:
+          |${errors.map(_.format).toList.mkString("\n")}
+          |""".trim.stripMargin
+    )
