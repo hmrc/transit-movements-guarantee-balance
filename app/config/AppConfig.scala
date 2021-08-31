@@ -38,6 +38,11 @@ class AppConfig @Inject() (config: Configuration, servicesConfig: ServicesConfig
   lazy val enrolmentKey        = config.get[String]("auth.enrolmentKey")
   lazy val enrolmentIdentifier = config.get[String]("auth.enrolmentIdentifier")
 
+  lazy val balanceRequestTimeout: FiniteDuration =
+    config.get[FiniteDuration]("balance-request-cache.request-timeout")
+  lazy val balanceRequestCacheTtl: FiniteDuration =
+    config.get[FiniteDuration]("balance-request-cache.ttl")
+
   lazy val mongoBalanceRequestTtl: FiniteDuration =
     config.get[FiniteDuration]("mongodb.balance-requests.ttl")
 

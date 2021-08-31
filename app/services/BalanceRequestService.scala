@@ -71,8 +71,8 @@ class BalanceRequestService @Inject() (
 
       result <- connector.sendMessage(id, message).map {
         _.leftMap {
-          case Upstream4xxResponse(_) => InternalServiceError()
-          case Upstream5xxResponse(_) => UpstreamServiceError()
+          case Upstream4xxResponse(_) => BalanceRequestError.internalServiceError()
+          case Upstream5xxResponse(_) => BalanceRequestError.upstreamServiceError()
         }.map { _ =>
           id
         }

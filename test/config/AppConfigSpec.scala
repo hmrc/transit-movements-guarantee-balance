@@ -56,6 +56,17 @@ class AppConfigSpec extends AnyFlatSpec with Matchers {
     appConfig.enrolmentIdentifier shouldBe "FooBarIdentifier"
   }
 
+  it should "deserialize balance-request-cache TTL config" in {
+    val appConfig = mkAppConfig(Configuration("balance-request-cache.ttl" -> "60 seconds"))
+    appConfig.balanceRequestCacheTtl shouldBe 60.seconds
+  }
+
+  it should "deserialize balance-request-cache request timeout config" in {
+    val appConfig =
+      mkAppConfig(Configuration("balance-request-cache.request-timeout" -> "20 seconds"))
+    appConfig.balanceRequestTimeout shouldBe 20.seconds
+  }
+
   it should "deserialize Mongo balance-requests collection TTL config" in {
     val appConfig = mkAppConfig(Configuration("mongodb.balance-requests.ttl" -> "2 hours"))
     appConfig.mongoBalanceRequestTtl shouldBe 2.hours

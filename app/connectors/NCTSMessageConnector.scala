@@ -20,7 +20,6 @@ import cats.effect.IO
 import com.google.inject.ImplementedBy
 import config.AppConfig
 import models.MessageType
-import models.formats.CommonFormats.elemWrites
 import models.values.BalanceId
 import play.api.http.ContentTypes
 import play.api.http.HeaderNames
@@ -58,6 +57,10 @@ class NCTSMessageConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient
         "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageSender.hexString}",
         "X-Message-Type"         -> MessageType.QueryOnGuarantees.code
       )
-      http.POST[Elem, Either[UpstreamErrorResponse, Unit]](urlString, wrappedMessage, headers)
+      http.POSTString[Either[UpstreamErrorResponse, Unit]](
+        urlString,
+        wrappedMessage.toString,
+        headers
+      )
     }
 }

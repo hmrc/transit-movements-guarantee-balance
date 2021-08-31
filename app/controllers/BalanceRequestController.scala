@@ -21,6 +21,11 @@ import cats.effect.unsafe.IORuntime
 import cats.syntax.all._
 import controllers.actions.AuthActionProvider
 import controllers.actions.IOActions
+import models.BalanceRequestFunctionalError
+import models.BalanceRequestResponse
+import models.BalanceRequestSuccess
+import models.BalanceRequestXmlError
+import models.errors._
 import models.formats.HttpFormats
 import models.request.BalanceRequest
 import models.values.BalanceId
@@ -28,7 +33,7 @@ import play.api.libs.json.Json
 import play.api.mvc.Action
 import play.api.mvc.AnyContent
 import play.api.mvc.ControllerComponents
-import services.BalanceRequestService
+import services.BalanceRequestCacheService
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import javax.inject.Inject
@@ -38,7 +43,7 @@ import scala.util.control.NonFatal
 @Singleton
 class BalanceRequestController @Inject() (
   authenticate: AuthActionProvider,
-  service: BalanceRequestService,
+  service: BalanceRequestCacheService,
   cc: ControllerComponents,
   val runtime: IORuntime
 ) extends BackendController(cc)
@@ -48,13 +53,28 @@ class BalanceRequestController @Inject() (
   def submitBalanceRequest: Action[BalanceRequest] =
     authenticate().io(parse.json[BalanceRequest]) { implicit request =>
       service
-        .submitBalanceRequest(request.body)
+        .getBalance(request.enrolmentId, request.body)
         .map {
-          case Left(error)      => Status(error.statusCode)(error.message)
-          case Right(balanceId) => Accepted(Json.toJson(balanceId))
+          case Right(success @ BalanceRequestSuccess(_, _)) =>
+            Ok(Json.toJson[BalanceRequestResponse](success))
+
+          case Right(functionalError @ BalanceRequestFunctionalError(_)) =>
+            BadRequest(Json.toJson[BalanceRequestResponse](functionalError))
+
+          case Right(BalanceRequestXmlError(_)) =>
+            InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
+
+          case Left(error @ UpstreamTimeoutError(_, _)) =>
+            Accepted(Json.toJson[BalanceId](error.balanceId))
+
+          case Left(error @ UpstreamServiceError(_)) =>
+            InternalServerError(Json.toJson[BalanceRequestError](error))
+
+          case Left(error @ InternalServiceError(_)) =>
+            InternalServerError(Json.toJson[BalanceRequestError](error))
         }
         .recover { case NonFatal(_) =>
-          InternalServerError("Internal server error")
+          InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
         }
     }
 

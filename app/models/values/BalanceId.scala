@@ -17,6 +17,7 @@
 package models.values
 
 import cats.effect.IO
+import cats.effect.std.UUIDGen
 
 import java.nio.ByteBuffer
 import java.time.Clock
@@ -54,7 +55,7 @@ object BalanceId {
   def next(clock: Clock): IO[BalanceId] =
     for {
       instant <- IO(clock.instant())
-      uuid    <- IO.blocking(UUID.randomUUID)
+      uuid    <- UUIDGen.randomUUID[IO]
     } yield create(instant, uuid)
 
   /** Produces a sequential balance ID from the given UUID.

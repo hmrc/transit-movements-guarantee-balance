@@ -16,23 +16,31 @@
 
 package models.errors
 
+import models.values.BalanceId
+
 sealed abstract class BalanceRequestError extends Product with Serializable {
-  def statusCode: Int
   def message: String
 }
 
-case class BadRequestError(
-  message: String,
-  errors: List[BalanceRequestError] = List.empty
-) extends BalanceRequestError {
-  def statusCode: Int = 400
-}
-
 case class UpstreamServiceError(message: String = "Internal server error")
-    extends BalanceRequestError {
-  def statusCode: Int = 500
-}
+    extends BalanceRequestError
+
 case class InternalServiceError(message: String = "Internal server error")
-    extends BalanceRequestError {
-  def statusCode: Int = 500
+    extends BalanceRequestError
+
+case class UpstreamTimeoutError(balanceId: BalanceId, message: String = "Gateway timeout")
+    extends BalanceRequestError
+
+object BalanceRequestError {
+  def upstreamServiceError(message: String = "Internal server error"): BalanceRequestError =
+    UpstreamServiceError(message)
+
+  def internalServiceError(message: String = "Internal server error"): BalanceRequestError =
+    InternalServiceError(message)
+
+  def upstreamTimeoutError(
+    balanceId: BalanceId,
+    message: String = "Gateway timeout"
+  ): BalanceRequestError =
+    UpstreamTimeoutError(balanceId, message)
 }

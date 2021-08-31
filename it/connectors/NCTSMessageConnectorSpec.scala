@@ -55,7 +55,7 @@ class NCTSMessageConnectorSpec
         .withHeader(HeaderNames.CONTENT_TYPE, equalTo(ContentTypes.XML))
         .withHeader("X-Message-Sender", equalTo("MDTP-GUA-22b9899e24ee48e6a18997d1"))
         .withHeader("X-Message-Type", equalTo("IE034"))
-        .withRequestBody(containing("<transitRequest><foo></foo></transitRequest>"))
+        .withRequestBody(equalTo("<transitRequest><foo></foo></transitRequest>"))
         .willReturn(aResponse().withStatus(ACCEPTED))
     )
 
