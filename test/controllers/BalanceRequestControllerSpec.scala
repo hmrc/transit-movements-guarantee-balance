@@ -94,7 +94,7 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     )
   }
 
-  it should "return 400 when NCTS returns a functional error" in {
+  it should "return 200 when NCTS returns a functional error" in {
     val balanceRequest = BalanceRequest(
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
@@ -110,7 +110,7 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
       getBalanceResponse = IO.pure(Right(balanceRequestFunctionalError))
     ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
 
-    status(result) shouldBe BAD_REQUEST
+    status(result) shouldBe OK
     contentType(result) shouldBe Some(ContentTypes.JSON)
     contentAsJson(result) shouldBe Json.obj(
       "status" -> "FUNCTIONAL_ERROR",

@@ -59,7 +59,7 @@ class BalanceRequestController @Inject() (
             Ok(Json.toJson[BalanceRequestResponse](success))
 
           case Right(functionalError @ BalanceRequestFunctionalError(_)) =>
-            BadRequest(Json.toJson[BalanceRequestResponse](functionalError))
+            Ok(Json.toJson[BalanceRequestResponse](functionalError))
 
           case Right(BalanceRequestXmlError(_)) =>
             InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
