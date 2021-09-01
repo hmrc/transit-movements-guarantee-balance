@@ -37,7 +37,6 @@ import uk.gov.hmrc.http.HeaderCarrier
 import java.util.concurrent.TimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
-import scala.concurrent.ExecutionContextExecutor
 
 @ImplementedBy(classOf[BalanceRequestCacheServiceImpl])
 trait BalanceRequestCacheService {
@@ -58,8 +57,7 @@ class BalanceRequestCacheServiceImpl @Inject() (
   appConfig: AppConfig,
   metrics: Metrics,
   service: BalanceRequestService
-)(implicit ec: ExecutionContextExecutor)
-    extends BalanceRequestCacheService {
+) extends BalanceRequestCacheService {
 
   type CacheKey         = (EnrolmentId, GuaranteeReference)
   type DeferredResponse = Deferred[IO, BalanceRequestResponse]
@@ -67,7 +65,6 @@ class BalanceRequestCacheServiceImpl @Inject() (
   private val cache: LoadingCache[CacheKey, DeferredResponse] = Scaffeine()
     .expireAfterWrite(appConfig.balanceRequestCacheTtl)
     .recordStats(() => new MetricsStatsCounter(metrics.defaultRegistry, "balance-request-cache"))
-    .executor(ec)
     .build[CacheKey, DeferredResponse] { (_: CacheKey) =>
       Deferred.unsafe[IO, BalanceRequestResponse]
     }
@@ -109,19 +106,17 @@ class BalanceRequestCacheServiceImpl @Inject() (
     balanceRequest: BalanceRequest
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]] = {
 
-    val cacheKey         = (enrolmentId, balanceRequest.guaranteeReference)
-    val deferredResponse = cache.get(cacheKey)
+    val cacheKey = (enrolmentId, balanceRequest.guaranteeReference)
 
-    for {
-      cachedResponse <- deferredResponse.tryGet
-
-      response <- cachedResponse match {
-        case Some(cached) =>
-          IO.pure(Right(cached))
-        case None =>
-          fetchNewBalance(balanceRequest, deferredResponse)
-      }
-    } yield response
+    IO(cache.getIfPresent(cacheKey)).flatMap {
+      case Some(deferred) =>
+        deferred.get.map(Right.apply)
+      case None =>
+        for {
+          deferred <- IO(cache.get(cacheKey))
+          response <- fetchNewBalance(balanceRequest, deferred)
+        } yield response
+    }
   }
 
   def putBalance(
@@ -129,9 +124,11 @@ class BalanceRequestCacheServiceImpl @Inject() (
     guaranteeReference: GuaranteeReference,
     response: BalanceRequestResponse
   ): IO[Unit] = {
-    val cacheKey         = (enrolmentId, guaranteeReference)
-    val deferredResponse = cache.get(cacheKey)
+    val cacheKey = (enrolmentId, guaranteeReference)
 
-    deferredResponse.complete(response).void
+    for {
+      deferred <- IO(cache.get(cacheKey))
+      _        <- deferred.complete(response)
+    } yield ()
   }
 }

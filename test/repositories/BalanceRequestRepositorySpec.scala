@@ -32,6 +32,7 @@ import play.api.test.FutureAwaits
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
+import java.security.SecureRandom
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -50,11 +51,13 @@ class BalanceRequestRepositorySpec
 
   implicit val ec    = ExecutionContext.global
   override val clock = Clock.tickSeconds(ZoneOffset.UTC)
+  val random         = new SecureRandom
 
   override lazy val repository = new BalanceRequestRepositoryImpl(
     mongoComponent,
     mkAppConfig(Configuration("mongodb.balance-requests.ttl" -> "5 minutes")),
-    clock
+    clock,
+    random
   )
 
   def mkAppConfig(config: Configuration) = {

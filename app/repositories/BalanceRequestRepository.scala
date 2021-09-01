@@ -46,6 +46,7 @@ import uk.gov.hmrc.mongo.play.json.Codecs
 import uk.gov.hmrc.mongo.play.json.CollectionFactory
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
+import java.security.SecureRandom
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
@@ -69,7 +70,8 @@ trait BalanceRequestRepository {
 class BalanceRequestRepositoryImpl @Inject() (
   mongoComponent: MongoComponent,
   appConfig: AppConfig,
-  clock: Clock
+  clock: Clock,
+  random: SecureRandom
 )(implicit
   ec: ExecutionContext
 ) extends PlayMongoRepository[PendingBalanceRequest](
@@ -125,7 +127,7 @@ class BalanceRequestRepositoryImpl @Inject() (
     }
 
   def insertBalanceRequest(requestedAt: Instant): IO[BalanceId] = {
-    val insertResult = BalanceId.next(clock).flatMap { id =>
+    val insertResult = BalanceId.next(clock, random).flatMap { id =>
       val pendingRequest = PendingBalanceRequest(
         balanceId = id,
         requestedAt = requestedAt,

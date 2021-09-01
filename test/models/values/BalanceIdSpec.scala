@@ -16,12 +16,15 @@
 
 package models.values
 
+import cats.effect.unsafe.implicits.global
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
+import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.Random
 import java.util.UUID
 
 class BalanceIdSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks {
@@ -30,6 +33,16 @@ class BalanceIdSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChe
       val uuidHex   = uuid.toString.replaceAll("-", "")
       val balanceId = BalanceId(uuid)
       balanceId.messageSender.hexString shouldBe uuidHex.take(24)
+  }
+
+  "BalanceId.next" should "generate a sequential UUID based upon the system time and a random UUID" in {
+    val date      = LocalDateTime.of(2021, 9, 1, 9, 32, 31).toInstant(ZoneOffset.UTC)
+    val clock     = Clock.fixed(date, ZoneOffset.UTC)
+    val random    = new Random(0)
+    val balanceId = BalanceId.next(clock, random).unsafeRunSync
+    balanceId shouldBe BalanceId(UUID.fromString("612f48af-d4d9-4138-bd93-cb799b3970be"))
+    balanceId.value.variant shouldBe 2
+    balanceId.value.version shouldBe 4
   }
 
   "BalanceId.create" should "replace the first 8 hex characters of the UUID with the Unix epoch second" in forAll {
