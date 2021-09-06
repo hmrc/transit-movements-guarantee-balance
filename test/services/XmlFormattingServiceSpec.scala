@@ -50,7 +50,7 @@ class XmlFormattingServiceSpec extends AnyFlatSpec with Matchers with Streamline
         <MesSenMES3>MDTP-GUA-22b9899e24ee48e6a18997d1</MesSenMES3>
         <MesRecMES6>NTA.GB</MesRecMES6>
         <DatOfPreMES9>20210813</DatOfPreMES9>
-        <TimOfPreMES10>175101</TimOfPreMES10>
+        <TimOfPreMES10>1751</TimOfPreMES10>
         <IntConRefMES11>deadbeefcafeba</IntConRefMES11>
         <MesIdeMES19>deadbeefcafeba</MesIdeMES19>
         <MesTypMES20>GB034A</MesTypMES20>

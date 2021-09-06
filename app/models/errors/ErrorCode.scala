@@ -14,22 +14,13 @@
  * limitations under the License.
  */
 
-package connectors
+package models.errors
 
-import cats.effect.IO
-import models.values.BalanceId
-import uk.gov.hmrc.http.HeaderCarrier
-import uk.gov.hmrc.http.UpstreamErrorResponse
-
-import java.time.Instant
-import scala.xml.Elem
-
-case class FakeNCTSMessageConnector(
-  sendMessageResponse: IO[Either[UpstreamErrorResponse, Unit]] = IO.stub
-) extends NCTSMessageConnector {
-
-  override def sendMessage(balanceId: BalanceId, requestedAt: Instant, message: Elem)(implicit
-    hc: HeaderCarrier
-  ): IO[Either[UpstreamErrorResponse, Unit]] =
-    sendMessageResponse
+/** Common error codes documented in [[https://developer.service.hmrc.gov.uk/api-documentation/docs/reference-guide#errors Developer Hub Reference Guide]]
+  */
+object ErrorCode {
+  val FieldName           = "code"
+  val BadRequest          = "BAD_REQUEST"
+  val InternalServerError = "INTERNAL_SERVER_ERROR"
+  val GatewayTimeout      = "GATEWAY_TIMEOUT"
 }

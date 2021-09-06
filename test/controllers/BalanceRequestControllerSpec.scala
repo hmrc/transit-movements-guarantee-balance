@@ -16,31 +16,37 @@
 
 package controllers
 
+import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import config.AppConfig
-import connectors.FakeNCTSMessageConnector
+import config.Constants
 import controllers.actions.FakeAuthActionProvider
-import models.PendingBalanceRequest
+import models.BalanceRequestFunctionalError
+import models.BalanceRequestResponse
+import models.BalanceRequestSuccess
+import models.BalanceRequestXmlError
+import models.errors.BalanceRequestError
+import models.errors.FunctionalError
+import models.errors.InternalServiceError
+import models.errors.UpstreamServiceError
+import models.errors.UpstreamTimeoutError
+import models.errors.XmlError
 import models.request.BalanceRequest
 import models.values._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
 import play.api.http.ContentTypes
-import play.api.http.MimeTypes
 import play.api.libs.json.JsString
+import play.api.libs.json.Json
 import play.api.test.FakeRequest
 import play.api.test.Helpers
 import play.api.test.Helpers._
-import repositories.FakeBalanceRequestRepository
-import services.BalanceRequestService
-import services.XmlFormattingServiceImpl
-import services.XmlValidationService
+import services.FakeBalanceRequestCacheService
 import uk.gov.hmrc.http.UpstreamErrorResponse
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
-import java.time.Clock
 import java.util.UUID
 
 class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
@@ -51,24 +57,12 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
   }
 
   def controller(
-    getBalanceRequestResponse: IO[Option[PendingBalanceRequest]] = IO.stub,
-    insertBalanceRequestResponse: IO[BalanceId] = IO.stub,
-    updateBalanceRequestResponse: IO[Option[PendingBalanceRequest]] = IO.stub,
-    sendMessageResponse: IO[Either[UpstreamErrorResponse, Unit]] = IO.stub
+    getBalanceResponse: IO[Either[BalanceRequestError, BalanceRequestResponse]] = IO.stub,
+    putBalanceResponse: IO[Unit] = IO.unit
   ) = {
-    val repository = FakeBalanceRequestRepository(
-      getBalanceRequestResponse,
-      insertBalanceRequestResponse,
-      updateBalanceRequestResponse
-    )
-
-    val service = new BalanceRequestService(
-      repository,
-      new XmlFormattingServiceImpl,
-      new XmlValidationService,
-      FakeNCTSMessageConnector(sendMessageResponse),
-      mkAppConfig(Configuration()),
-      Clock.systemUTC()
+    val service = FakeBalanceRequestCacheService(
+      getBalanceResponse,
+      putBalanceResponse
     )
 
     new BalanceRequestController(
@@ -79,7 +73,95 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     )
   }
 
-  "BalanceRequestController.submitBalanceRequest" should "return 202 when successful" in {
+  "BalanceRequestController.submitBalanceRequest" should "return 200 when successful" in {
+    val balanceRequest = BalanceRequest(
+      TaxIdentifier("GB12345678900"),
+      GuaranteeReference("05DE3300BE0001067A001017"),
+      AccessCode("1234")
+    )
+
+    val balanceRequestSuccess =
+      BalanceRequestSuccess(BigDecimal("12345678.90"), CurrencyCode("GBP"))
+
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
+    val result = controller(
+      getBalanceResponse = IO.pure(Right(balanceRequestSuccess))
+    ).submitBalanceRequest(request)
+
+    status(result) shouldBe OK
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "status"   -> "SUCCESS",
+      "balance"  -> 12345678.9,
+      "currency" -> "GBP"
+    )
+  }
+
+  it should "return 200 when NCTS returns a functional error" in {
+    val balanceRequest = BalanceRequest(
+      TaxIdentifier("GB12345678900"),
+      GuaranteeReference("05DE3300BE0001067A001017"),
+      AccessCode("1234")
+    )
+
+    val balanceRequestFunctionalError =
+      BalanceRequestFunctionalError(
+        NonEmptyList.one(FunctionalError(ErrorType(14), "Foo.Bar(1).Baz", None))
+      )
+
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
+    val result = controller(
+      getBalanceResponse = IO.pure(Right(balanceRequestFunctionalError))
+    ).submitBalanceRequest(request)
+
+    status(result) shouldBe OK
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "status" -> "FUNCTIONAL_ERROR",
+      "errors" -> Json.arr(
+        Json.obj(
+          "errorType"    -> 14,
+          "errorPointer" -> "Foo.Bar(1).Baz"
+        )
+      )
+    )
+  }
+
+  it should "return 500 when NCTS returns an XML error" in {
+    val balanceRequest = BalanceRequest(
+      TaxIdentifier("GB12345678900"),
+      GuaranteeReference("05DE3300BE0001067A001017"),
+      AccessCode("1234")
+    )
+
+    val balanceRequestXmlError =
+      BalanceRequestXmlError(
+        NonEmptyList.one(XmlError(ErrorType(14), "Foo.Bar(1).Baz", None))
+      )
+
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
+    val result = controller(
+      getBalanceResponse = IO.pure(Right(balanceRequestXmlError))
+    ).submitBalanceRequest(request)
+
+    status(result) shouldBe INTERNAL_SERVER_ERROR
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "code"    -> "INTERNAL_SERVER_ERROR",
+      "message" -> "Internal server error"
+    )
+  }
+
+  it should "return 202 and the balance ID to poll when the request times out" in {
     val balanceRequest = BalanceRequest(
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
@@ -89,90 +171,112 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
     val balanceId = BalanceId(uuid)
 
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
     val result = controller(
-      insertBalanceRequestResponse = IO.pure(balanceId),
-      sendMessageResponse = IO.unit.map(Right.apply)
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+      getBalanceResponse = IO.pure(Left(UpstreamTimeoutError(balanceId)))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe ACCEPTED
     contentType(result) shouldBe Some(ContentTypes.JSON)
     contentAsJson(result) shouldBe JsString("22b9899e-24ee-48e6-a189-97d1f45391c4")
   }
 
-  it should "return 500 when there is an upstream server error" in {
+  it should "return 400 when the channel header is missing" in {
     val balanceRequest = BalanceRequest(
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       AccessCode("1234")
     )
 
-    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId = BalanceId(uuid)
+    val balanceRequestSuccess =
+      BalanceRequestSuccess(BigDecimal("12345678.90"), CurrencyCode("GBP"))
+
+    val request = FakeRequest().withBody(balanceRequest)
 
     val result = controller(
-      insertBalanceRequestResponse = IO.pure(balanceId),
-      sendMessageResponse = IO.pure(Left(UpstreamErrorResponse("Kaboom!!!", 502)))
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+      getBalanceResponse = IO.pure(Right(balanceRequestSuccess))
+    ).submitBalanceRequest(request)
 
-    status(result) shouldBe INTERNAL_SERVER_ERROR
-    contentType(result) shouldBe Some(MimeTypes.TEXT)
-    contentAsString(result) shouldBe "Internal server error"
+    status(result) shouldBe BAD_REQUEST
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "code"    -> "BAD_REQUEST",
+      "message" -> "Missing or incorrect Channel header"
+    )
   }
 
-  it should "return 500 when there is an upstream client error" in {
+  it should "return 500 when there is an upstream service error" in {
     val balanceRequest = BalanceRequest(
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       AccessCode("1234")
     )
 
-    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId = BalanceId(uuid)
+    val error = UpstreamErrorResponse("Aarghh!!!", 400)
+
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
 
     val result = controller(
-      insertBalanceRequestResponse = IO.pure(balanceId),
-      sendMessageResponse = IO.pure(Left(UpstreamErrorResponse("Arghhh!!!", 400)))
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+      getBalanceResponse = IO.pure(Left(UpstreamServiceError(cause = error)))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe INTERNAL_SERVER_ERROR
-    contentType(result) shouldBe Some(MimeTypes.TEXT)
-    contentAsString(result) shouldBe "Internal server error"
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "code"    -> "INTERNAL_SERVER_ERROR",
+      "message" -> "Internal server error"
+    )
   }
 
-  it should "return 500 when there is an error inserting into the database" in {
+  it should "return 500 when there is an internal service error" in {
     val balanceRequest = BalanceRequest(
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       AccessCode("1234")
     )
 
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
     val result = controller(
-      insertBalanceRequestResponse = IO.raiseError(new RuntimeException)
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+      getBalanceResponse = IO.pure(Left(InternalServiceError()))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe INTERNAL_SERVER_ERROR
-    contentType(result) shouldBe Some(MimeTypes.TEXT)
-    contentAsString(result) shouldBe "Internal server error"
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "code"    -> "INTERNAL_SERVER_ERROR",
+      "message" -> "Internal server error"
+    )
   }
 
-  it should "return 500 when there is an error sending to NCTS" in {
+  it should "return 500 when there is a runtime exception" in {
     val balanceRequest = BalanceRequest(
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       AccessCode("1234")
     )
 
-    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId = BalanceId(uuid)
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
 
     val result = controller(
-      insertBalanceRequestResponse = IO.pure(balanceId),
-      sendMessageResponse = IO.raiseError(new RuntimeException)
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+      getBalanceResponse = IO.raiseError(new RuntimeException)
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe INTERNAL_SERVER_ERROR
-    contentType(result) shouldBe Some(MimeTypes.TEXT)
-    contentAsString(result) shouldBe "Internal server error"
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "code"    -> "INTERNAL_SERVER_ERROR",
+      "message" -> "Internal server error"
+    )
   }
 
   "BalanceRequestController.getBalanceRequest" should "return 404 when the balance request is not found" in {

@@ -14,22 +14,11 @@
  * limitations under the License.
  */
 
-package connectors
+package logging
 
 import cats.effect.IO
-import models.values.BalanceId
-import uk.gov.hmrc.http.HeaderCarrier
-import uk.gov.hmrc.http.UpstreamErrorResponse
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-import java.time.Instant
-import scala.xml.Elem
-
-case class FakeNCTSMessageConnector(
-  sendMessageResponse: IO[Either[UpstreamErrorResponse, Unit]] = IO.stub
-) extends NCTSMessageConnector {
-
-  override def sendMessage(balanceId: BalanceId, requestedAt: Instant, message: Elem)(implicit
-    hc: HeaderCarrier
-  ): IO[Either[UpstreamErrorResponse, Unit]] =
-    sendMessageResponse
+trait Logging {
+  val logger = Slf4jLogger.getLoggerFromClass[IO](getClass())
 }

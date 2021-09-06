@@ -43,7 +43,7 @@ class XmlFormattingServiceImpl @Inject() () extends XmlFormattingService {
   private val dateFormatter =
     DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC)
   private val timeFormatter =
-    DateTimeFormatter.ofPattern("HHmmss").withZone(ZoneOffset.UTC)
+    DateTimeFormatter.ofPattern("HHmm").withZone(ZoneOffset.UTC)
   private def messageSender(sender: MessageSender) =
     s"MDTP-GUA-${sender.hexString}"
 

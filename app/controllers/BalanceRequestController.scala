@@ -19,16 +19,26 @@ package controllers
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import cats.syntax.all._
+import config.Constants
 import controllers.actions.AuthActionProvider
 import controllers.actions.IOActions
+import logging.Logging
+import models.BalanceRequestFunctionalError
+import models.BalanceRequestResponse
+import models.BalanceRequestSuccess
+import models.BalanceRequestXmlError
+import models.errors._
 import models.formats.HttpFormats
 import models.request.BalanceRequest
+import models.request.Channel
 import models.values.BalanceId
 import play.api.libs.json.Json
 import play.api.mvc.Action
 import play.api.mvc.AnyContent
 import play.api.mvc.ControllerComponents
-import services.BalanceRequestService
+import play.api.mvc.Request
+import play.api.mvc.Result
+import services.BalanceRequestCacheService
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import javax.inject.Inject
@@ -38,24 +48,62 @@ import scala.util.control.NonFatal
 @Singleton
 class BalanceRequestController @Inject() (
   authenticate: AuthActionProvider,
-  service: BalanceRequestService,
+  service: BalanceRequestCacheService,
   cc: ControllerComponents,
   val runtime: IORuntime
 ) extends BackendController(cc)
     with IOActions
-    with HttpFormats {
+    with HttpFormats
+    with Logging {
+
+  private def requireChannelHeader[A](
+    result: => IO[Result]
+  )(implicit request: Request[A]): IO[Result] =
+    request.headers
+      .get(Constants.ChannelHeader)
+      .flatMap(Channel.withName)
+      .map(_ => result)
+      .getOrElse {
+        val error     = BadRequestError("Missing or incorrect Channel header")
+        val errorJson = Json.toJson[BalanceRequestError](error)
+        IO.pure(BadRequest(errorJson))
+      }
 
   def submitBalanceRequest: Action[BalanceRequest] =
     authenticate().io(parse.json[BalanceRequest]) { implicit request =>
-      service
-        .submitBalanceRequest(request.body)
-        .map {
-          case Left(error)      => Status(error.statusCode)(error.message)
-          case Right(balanceId) => Accepted(Json.toJson(balanceId))
-        }
-        .recover { case NonFatal(_) =>
-          InternalServerError("Internal server error")
-        }
+      requireChannelHeader {
+        service
+          .getBalance(request.enrolmentId, request.body)
+          .map {
+            case Right(success @ BalanceRequestSuccess(_, _)) =>
+              Ok(Json.toJson[BalanceRequestResponse](success))
+
+            case Right(functionalError @ BalanceRequestFunctionalError(_)) =>
+              Ok(Json.toJson[BalanceRequestResponse](functionalError))
+
+            case Right(BalanceRequestXmlError(_)) =>
+              InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
+
+            case Left(error @ BadRequestError(_)) =>
+              BadRequest(Json.toJson[BalanceRequestError](error))
+
+            case Left(error @ UpstreamTimeoutError(_, _)) =>
+              Accepted(Json.toJson[BalanceId](error.balanceId))
+
+            case Left(error @ UpstreamServiceError(_, _)) =>
+              InternalServerError(Json.toJson[BalanceRequestError](error))
+
+            case Left(error @ InternalServiceError(_, _)) =>
+              InternalServerError(Json.toJson[BalanceRequestError](error))
+          }
+          .recoverWith { case NonFatal(e) =>
+            logger.error(e)("Unhandled exception thrown").map { _ =>
+              val error     = InternalServiceError.causedBy(e)
+              val errorJson = Json.toJson[BalanceRequestError](error)
+              InternalServerError(errorJson)
+            }
+          }
+      }
     }
 
   def getBalanceRequest(id: BalanceId): Action[AnyContent] =

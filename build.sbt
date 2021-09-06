@@ -25,6 +25,7 @@ lazy val microservice = Project(appName, file("."))
     semanticdbEnabled := true,
     semanticdbVersion := scalafixSemanticdb.revision,
     libraryDependencies ++= AppDependencies.compile ++ AppDependencies.test,
+    libraryDependencySchemes ++= AppDependencies.dependencySchemes,
     RoutesKeys.routesImport ++= Seq(
       "models.values._"
     ),

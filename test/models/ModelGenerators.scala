@@ -19,6 +19,7 @@ package models
 import cats.data.NonEmptyList
 import models.errors.FunctionalError
 import models.errors.XmlError
+import models.request.BalanceRequest
 import models.values._
 import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
@@ -44,13 +45,48 @@ trait ModelGenerators {
       }
     }
 
+  def arbStringValueClass[A](len: Int, f: String => A): Arbitrary[A] = Arbitrary {
+    Gen.stringOfN(len, Gen.alphaNumChar).map(f)
+  }
+
+  implicit val arbEnrolmentId: Arbitrary[EnrolmentId] =
+    arbStringValueClass(11, EnrolmentId.apply)
+
+  implicit val arbTaxIdentifier: Arbitrary[TaxIdentifier] =
+    arbStringValueClass(13, TaxIdentifier.apply)
+
+  implicit val arbGuaranteeReference: Arbitrary[GuaranteeReference] =
+    arbStringValueClass(17, GuaranteeReference.apply)
+
+  implicit val arbAccessCode: Arbitrary[AccessCode] =
+    arbStringValueClass(4, AccessCode.apply)
+
+  implicit val arbBalanceRequest: Arbitrary[BalanceRequest] =
+    Arbitrary {
+      for {
+        taxIdentifier      <- arbitrary[TaxIdentifier]
+        guaranteeReference <- arbitrary[GuaranteeReference]
+        accessCode         <- arbitrary[AccessCode]
+      } yield BalanceRequest(
+        taxIdentifier,
+        guaranteeReference,
+        accessCode
+      )
+    }
+
   implicit val arbPendingBalanceRequest: Arbitrary[PendingBalanceRequest] =
     Arbitrary {
       for {
-        balanceId   <- arbitrary[UUID].map(BalanceId.apply)
-        requestedAt <- arbitrary[Instant]
+        balanceId          <- arbitrary[UUID].map(BalanceId.apply)
+        enrolmentId        <- arbitrary[EnrolmentId]
+        taxIdentifier      <- arbitrary[TaxIdentifier]
+        guaranteeReference <- arbitrary[GuaranteeReference]
+        requestedAt        <- arbitrary[Instant]
       } yield PendingBalanceRequest(
         balanceId,
+        enrolmentId,
+        taxIdentifier,
+        guaranteeReference,
         requestedAt,
         completedAt = None,
         response = None

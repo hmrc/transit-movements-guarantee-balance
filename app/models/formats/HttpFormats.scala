@@ -16,11 +16,70 @@
 
 package models.formats
 
+import models.BalanceRequestFunctionalError
+import models.BalanceRequestResponse
+import models.BalanceRequestResponseStatus
+import models.BalanceRequestSuccess
+import models.BalanceRequestXmlError
+import models.errors._
 import models.values._
-import play.api.libs.json.Format
-import play.api.libs.json.Json
+import play.api.libs.json._
+import uk.gov.hmrc.play.json.Union
 
-trait HttpFormats {
+trait HttpFormats extends CommonFormats {
   implicit val balanceIdFormat: Format[BalanceId] =
     Json.valueFormat[BalanceId]
+
+  def withStatusField(jsObject: JsObject, status: String): JsObject =
+    jsObject ++ Json.obj(ErrorCode.FieldName -> status)
+
+  implicit lazy val upstreamServiceErrorWrites: OWrites[UpstreamServiceError] =
+    (__ \ "message").write[String].contramap(_.message)
+
+  implicit lazy val internalServiceErrorWrites: OWrites[InternalServiceError] =
+    (__ \ "message").write[String].contramap(_.message)
+
+  implicit lazy val upstreamTimeoutErrorWrites: OWrites[UpstreamTimeoutError] =
+    (__ \ "message").write[String].contramap(_.message)
+
+  implicit lazy val badRequestErrorWrites: OWrites[BadRequestError] =
+    (__ \ "message").write[String].contramap(_.message)
+
+  implicit lazy val balanceRequestErrorWrites: OWrites[BalanceRequestError] =
+    OWrites {
+      case err @ BadRequestError(_) =>
+        withStatusField(badRequestErrorWrites.writes(err), ErrorCode.BadRequest)
+
+      case err @ UpstreamServiceError(_, _) =>
+        withStatusField(upstreamServiceErrorWrites.writes(err), ErrorCode.InternalServerError)
+
+      case err @ InternalServiceError(_, _) =>
+        withStatusField(internalServiceErrorWrites.writes(err), ErrorCode.InternalServerError)
+
+      case err @ UpstreamTimeoutError(_, _) =>
+        withStatusField(upstreamTimeoutErrorWrites.writes(err), ErrorCode.GatewayTimeout)
+    }
+
+  implicit lazy val functionalErrorFormat: OFormat[FunctionalError] =
+    Json.format[FunctionalError]
+
+  implicit lazy val xmlErrorFormat: OFormat[XmlError] =
+    Json.format[XmlError]
+
+  implicit lazy val balanceRequestSuccessFormat: OFormat[BalanceRequestSuccess] =
+    Json.format[BalanceRequestSuccess]
+
+  implicit lazy val balanceRequestFunctionalErrorFormat: OFormat[BalanceRequestFunctionalError] =
+    Json.format[BalanceRequestFunctionalError]
+
+  implicit lazy val balanceRequestXmlErrorFormat: OFormat[BalanceRequestXmlError] =
+    Json.format[BalanceRequestXmlError]
+
+  implicit lazy val balanceRequestResponseFormat: OFormat[BalanceRequestResponse] =
+    Union
+      .from[BalanceRequestResponse](BalanceRequestResponseStatus.FieldName)
+      .and[BalanceRequestSuccess](BalanceRequestResponseStatus.Success)
+      .and[BalanceRequestFunctionalError](BalanceRequestResponseStatus.FunctionalError)
+      .and[BalanceRequestXmlError](BalanceRequestResponseStatus.XmlError)
+      .format
 }

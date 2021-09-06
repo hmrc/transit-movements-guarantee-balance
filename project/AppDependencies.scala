@@ -6,17 +6,22 @@ object AppDependencies {
   val catsVersion       = "2.6.1"
   val catsEffectVersion = "3.2.1"
   val catsRetryVersion  = "3.0.0"
+  val log4catsVersion   = "2.1.1"
   val bootstrapVersion  = "5.9.0"
   val hmrcMongoVersion  = "0.52.0"
 
   val compile = Seq(
-    "uk.gov.hmrc"       %% "bootstrap-backend-play-28" % bootstrapVersion,
-    "uk.gov.hmrc.mongo" %% "hmrc-mongo-play-28"        % hmrcMongoVersion,
-    "uk.gov.hmrc"       %% "play-json-union-formatter" % "1.14.0-play-28",
-    "io.lemonlabs"      %% "scala-uri"                 % "3.5.0",
-    "org.typelevel"     %% "cats-core"                 % catsVersion,
-    "org.typelevel"     %% "cats-effect"               % catsEffectVersion,
-    "com.github.cb372"  %% "cats-retry"                % catsRetryVersion,
+    "uk.gov.hmrc"            %% "bootstrap-backend-play-28" % bootstrapVersion,
+    "uk.gov.hmrc.mongo"      %% "hmrc-mongo-play-28"        % hmrcMongoVersion,
+    "uk.gov.hmrc"            %% "play-json-union-formatter" % "1.15.0-play-28",
+    "io.lemonlabs"           %% "scala-uri"                 % "3.5.0",
+    "org.typelevel"          %% "cats-core"                 % catsVersion,
+    "org.typelevel"          %% "cats-effect"               % catsEffectVersion,
+    "org.typelevel"          %% "log4cats-slf4j"            % log4catsVersion,
+    "com.github.cb372"       %% "cats-retry"                % catsRetryVersion,
+    "com.github.blemale"     %% "scaffeine"                 % "4.1.0",
+    "org.scala-lang.modules" %% "scala-java8-compat"        % "1.0.0",
+    "io.dropwizard.metrics"   % "metrics-caffeine"          % "4.2.0",
     compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
   )
 
@@ -29,4 +34,8 @@ object AppDependencies {
     "com.github.tomakehurst" % "wiremock-jre8-standalone" % "2.30.0",
     "com.vladsch.flexmark"   % "flexmark-all"             % "0.36.8"
   ).map(_ % s"$Test, $IntegrationTest")
+
+  val dependencySchemes = Seq(
+    "org.scala-lang.modules" %% "scala-java8-compat" % "always"
+  )
 }

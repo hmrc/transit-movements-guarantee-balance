@@ -17,11 +17,17 @@
 package models
 
 import models.values.BalanceId
+import models.values.EnrolmentId
+import models.values.GuaranteeReference
+import models.values.TaxIdentifier
 
 import java.time.Instant
 
 case class PendingBalanceRequest(
   balanceId: BalanceId,
+  enrolmentId: EnrolmentId,
+  taxIdentifier: TaxIdentifier,
+  guaranteeReference: GuaranteeReference,
   requestedAt: Instant,
   completedAt: Option[Instant],
   response: Option[BalanceRequestResponse]

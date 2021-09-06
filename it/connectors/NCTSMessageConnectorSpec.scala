@@ -18,6 +18,7 @@ package connectors
 
 import cats.effect.unsafe.implicits.global
 import com.github.tomakehurst.wiremock.client.WireMock._
+import config.Constants
 import models.values.BalanceId
 import org.scalatest.EitherValues
 import org.scalatest.Inside
@@ -29,6 +30,9 @@ import play.api.test.Helpers._
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse._
 
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 import scala.util.Right
 
@@ -41,10 +45,13 @@ class NCTSMessageConnectorSpec
 
   override def portConfigKeys = Seq("microservice.services.eis-router.port")
 
-  implicit val hc = HeaderCarrier()
+  implicit val hc = HeaderCarrier(otherHeaders = Seq(Constants.ChannelHeader -> "api"))
 
   val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
   val balanceId = BalanceId(uuid)
+
+  val dateTime    = OffsetDateTime.of(LocalDateTime.of(2021, 9, 3, 18, 6, 20), ZoneOffset.UTC)
+  val requestedAt = dateTime.toInstant()
 
   "NCTSConnector" should "send XML message to downstream component" in {
     val connector = injector.instanceOf[NCTSMessageConnector]
@@ -53,14 +60,16 @@ class NCTSMessageConnectorSpec
       post(urlEqualTo("/movements/messages"))
         .withHeader(HeaderNames.ACCEPT, equalTo(ContentTypes.JSON))
         .withHeader(HeaderNames.CONTENT_TYPE, equalTo(ContentTypes.XML))
+        .withHeader(HeaderNames.DATE, equalTo("Fri, 3 Sep 2021 18:06:20 GMT"))
+        .withHeader("Channel", equalTo("api"))
         .withHeader("X-Message-Sender", equalTo("MDTP-GUA-22b9899e24ee48e6a18997d1"))
         .withHeader("X-Message-Type", equalTo("IE034"))
-        .withRequestBody(containing("<transitRequest><foo></foo></transitRequest>"))
+        .withRequestBody(equalTo("<transitRequest><foo></foo></transitRequest>"))
         .willReturn(aResponse().withStatus(ACCEPTED))
     )
 
     connector
-      .sendMessage(balanceId, <foo></foo>)
+      .sendMessage(balanceId, requestedAt, <foo></foo>)
       .map { response =>
         response shouldBe a[Right[_, _]]
         response.value shouldBe (())
@@ -77,7 +86,7 @@ class NCTSMessageConnectorSpec
     )
 
     connector
-      .sendMessage(balanceId, <foo></foo>)
+      .sendMessage(balanceId, requestedAt, <foo></foo>)
       .map { response =>
         response shouldBe a[Left[_, _]]
         inside(response.left.value) { case Upstream4xxResponse(response) =>
@@ -96,7 +105,7 @@ class NCTSMessageConnectorSpec
     )
 
     connector
-      .sendMessage(balanceId, <foo></foo>)
+      .sendMessage(balanceId, requestedAt, <foo></foo>)
       .map { response =>
         response shouldBe a[Left[_, _]]
         inside(response.left.value) { case Upstream5xxResponse(response) =>

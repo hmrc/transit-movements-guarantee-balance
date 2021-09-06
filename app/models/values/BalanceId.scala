@@ -21,6 +21,7 @@ import cats.effect.IO
 import java.nio.ByteBuffer
 import java.time.Clock
 import java.time.Instant
+import java.util.Random
 import java.util.UUID
 
 case class BalanceId(value: UUID) extends AnyVal {
@@ -49,13 +50,42 @@ object BalanceId {
     * with the first 32 bits replaced by the epoch second.
     *
     * @param clock The clock to use to retrieve the system time
+    * @param random The generator to use to produce a random UUID
     * @return an IO action which produces a new balance ID
     */
-  def next(clock: Clock): IO[BalanceId] =
+  def next(clock: Clock, random: Random): IO[BalanceId] =
     for {
       instant <- IO(clock.instant())
-      uuid    <- IO.blocking(UUID.randomUUID)
+      uuid    <- randomUUID(random)
     } yield create(instant, uuid)
+
+  /** Produces a random v4 UUID using the provided [[java.util.Random]] instance.
+    *
+    * Provides a way to seed a [[java.util.UUID]] with a particular generator for
+    * testing purposes, in the same way that we can for time with [[java.util.Clock]].
+    *
+    * @param random The generator to use to produce a random UUID
+    * @return an IO action which produces a random type 4 UUID
+    */
+  private def randomUUID(random: Random): IO[UUID] = IO.blocking {
+    val randomBuffer = ByteBuffer.wrap(new Array[Byte](16))
+    randomBuffer.putLong(random.nextLong())
+    randomBuffer.putLong(random.nextLong())
+
+    val randomBytes = randomBuffer.array
+    // Zero out top 4 bits
+    randomBytes(6) = (randomBytes(6) & 0x0f).toByte
+    // Set them to version 4
+    randomBytes(6) = (randomBytes(6) | 0x40).toByte
+    // Zero out top 2 bits
+    randomBytes(8) = (randomBytes(8) & 0x3f).toByte
+    // Set them to variant 2 (Leach-Salz)
+    randomBytes(8) = (randomBytes(8) | 0x80).toByte
+
+    val finalBuffer = ByteBuffer.wrap(randomBytes)
+
+    new UUID(finalBuffer.getLong(), finalBuffer.getLong())
+  }
 
   /** Produces a sequential balance ID from the given UUID.
     *

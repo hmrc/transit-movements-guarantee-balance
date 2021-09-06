@@ -16,23 +16,54 @@
 
 package models.errors
 
+import models.values.BalanceId
+import uk.gov.hmrc.http.UpstreamErrorResponse
+
 sealed abstract class BalanceRequestError extends Product with Serializable {
-  def statusCode: Int
   def message: String
 }
 
-case class BadRequestError(
-  message: String,
-  errors: List[BalanceRequestError] = List.empty
-) extends BalanceRequestError {
-  def statusCode: Int = 400
+case class BadRequestError(message: String) extends BalanceRequestError
+
+case class UpstreamServiceError(
+  message: String = "Internal server error",
+  cause: UpstreamErrorResponse
+) extends BalanceRequestError
+
+object UpstreamServiceError {
+  def causedBy(cause: UpstreamErrorResponse): BalanceRequestError =
+    UpstreamServiceError(cause = cause)
 }
 
-case class UpstreamServiceError(message: String = "Internal server error")
-    extends BalanceRequestError {
-  def statusCode: Int = 500
+case class InternalServiceError(
+  message: String = "Internal server error",
+  cause: Option[Throwable] = None
+) extends BalanceRequestError
+
+object InternalServiceError {
+  def causedBy(cause: Throwable): BalanceRequestError =
+    InternalServiceError(cause = Some(cause))
 }
-case class InternalServiceError(message: String = "Internal server error")
-    extends BalanceRequestError {
-  def statusCode: Int = 500
+
+case class UpstreamTimeoutError(balanceId: BalanceId, message: String = "Gateway timeout")
+    extends BalanceRequestError
+
+object BalanceRequestError {
+  def upstreamServiceError(
+    message: String = "Internal server error",
+    cause: UpstreamErrorResponse
+  ): BalanceRequestError =
+    UpstreamServiceError(message, cause)
+
+  def internalServiceError(
+    message: String = "Internal server error",
+    cause: Option[Throwable] = None
+  ): BalanceRequestError =
+    InternalServiceError(message, cause)
+
+  def upstreamTimeoutError(
+    balanceId: BalanceId,
+    message: String = "Gateway timeout"
+  ): BalanceRequestError =
+    UpstreamTimeoutError(balanceId, message)
 }
