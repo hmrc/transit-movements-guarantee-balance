@@ -79,6 +79,9 @@ trait MongoFormats
 
   private val balanceRequestFormat: OFormat[PendingBalanceRequest] = (
     (__ \ "_id").format[BalanceId] and
+      (__ \ "enrolmentId").format[EnrolmentId] and
+      (__ \ "taxIdentifier").format[TaxIdentifier] and
+      (__ \ "guaranteeReference").format[GuaranteeReference] and
       (__ \ "requestedAt").format[Instant] and
       (__ \ "completedAt").formatNullable[Instant] and
       (__ \ "response").formatNullable[BalanceRequestResponse]

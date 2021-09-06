@@ -34,8 +34,15 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
   val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
   val balanceId = BalanceId(uuid)
 
+  val enrolmentId        = EnrolmentId("12345678ABC")
+  val taxIdentifier      = TaxIdentifier("GB12345678900")
+  val guaranteeReference = GuaranteeReference("05DE3300BE0001067A001017")
+
   val pendingBalanceRequest = PendingBalanceRequest(
     balanceId,
+    enrolmentId,
+    taxIdentifier,
+    guaranteeReference,
     clock.instant().minusSeconds(60),
     completedAt = None,
     response = None
@@ -51,9 +58,12 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
     binary(base64, subType = "04")
 
   val pendingBalanceRequestJson = Json.obj(
-    "_id"           -> uuid(base64 = "IrmJniTuSOahiZfR9FORxA=="),
-    "messageSender" -> binary(base64 = "IrmJniTuSOahiZfR"),
-    "requestedAt"   -> date(clock.instant().minusSeconds(60))
+    "_id"                -> uuid(base64 = "IrmJniTuSOahiZfR9FORxA=="),
+    "messageSender"      -> binary(base64 = "IrmJniTuSOahiZfR"),
+    "enrolmentId"        -> enrolmentId.value,
+    "taxIdentifier"      -> taxIdentifier.value,
+    "guaranteeReference" -> guaranteeReference.value,
+    "requestedAt"        -> date(clock.instant().minusSeconds(60))
   )
 
   val successfulBalanceRequest = pendingBalanceRequest.copy(

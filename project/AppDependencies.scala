@@ -6,6 +6,7 @@ object AppDependencies {
   val catsVersion       = "2.6.1"
   val catsEffectVersion = "3.2.1"
   val catsRetryVersion  = "3.0.0"
+  val log4catsVersion   = "2.1.1"
   val bootstrapVersion  = "5.9.0"
   val hmrcMongoVersion  = "0.52.0"
 
@@ -16,6 +17,7 @@ object AppDependencies {
     "io.lemonlabs"           %% "scala-uri"                 % "3.5.0",
     "org.typelevel"          %% "cats-core"                 % catsVersion,
     "org.typelevel"          %% "cats-effect"               % catsEffectVersion,
+    "org.typelevel"          %% "log4cats-slf4j"            % log4catsVersion,
     "com.github.cb372"       %% "cats-retry"                % catsRetryVersion,
     "com.github.blemale"     %% "scaffeine"                 % "4.1.0",
     "org.scala-lang.modules" %% "scala-java8-compat"        % "1.0.0",

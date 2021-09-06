@@ -17,26 +17,49 @@
 package models.errors
 
 import models.values.BalanceId
+import uk.gov.hmrc.http.UpstreamErrorResponse
 
 sealed abstract class BalanceRequestError extends Product with Serializable {
   def message: String
 }
 
-case class UpstreamServiceError(message: String = "Internal server error")
-    extends BalanceRequestError
+case class BadRequestError(message: String) extends BalanceRequestError
 
-case class InternalServiceError(message: String = "Internal server error")
-    extends BalanceRequestError
+case class UpstreamServiceError(
+  message: String = "Internal server error",
+  cause: UpstreamErrorResponse
+) extends BalanceRequestError
+
+object UpstreamServiceError {
+  def causedBy(cause: UpstreamErrorResponse): BalanceRequestError =
+    UpstreamServiceError(cause = cause)
+}
+
+case class InternalServiceError(
+  message: String = "Internal server error",
+  cause: Option[Throwable] = None
+) extends BalanceRequestError
+
+object InternalServiceError {
+  def causedBy(cause: Throwable): BalanceRequestError =
+    InternalServiceError(cause = Some(cause))
+}
 
 case class UpstreamTimeoutError(balanceId: BalanceId, message: String = "Gateway timeout")
     extends BalanceRequestError
 
 object BalanceRequestError {
-  def upstreamServiceError(message: String = "Internal server error"): BalanceRequestError =
-    UpstreamServiceError(message)
+  def upstreamServiceError(
+    message: String = "Internal server error",
+    cause: UpstreamErrorResponse
+  ): BalanceRequestError =
+    UpstreamServiceError(message, cause)
 
-  def internalServiceError(message: String = "Internal server error"): BalanceRequestError =
-    InternalServiceError(message)
+  def internalServiceError(
+    message: String = "Internal server error",
+    cause: Option[Throwable] = None
+  ): BalanceRequestError =
+    InternalServiceError(message, cause)
 
   def upstreamTimeoutError(
     balanceId: BalanceId,

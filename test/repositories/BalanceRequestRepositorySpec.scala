@@ -22,7 +22,12 @@ import config.AppConfig
 import models.BalanceRequestResponse
 import models.ModelGenerators
 import models.PendingBalanceRequest
+import models.request.BalanceRequest
+import models.values.AccessCode
 import models.values.BalanceId
+import models.values.EnrolmentId
+import models.values.GuaranteeReference
+import models.values.TaxIdentifier
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -69,33 +74,101 @@ class BalanceRequestRepositorySpec
     repository.collectionName shouldBe "balance-requests"
   }
 
-  it should "round trip pending balance requests" in forAll { requestedAt: Instant =>
-    val assertion = for {
-      id <- repository.insertBalanceRequest(requestedAt)
+  it should "round trip pending balance requests" in forAll {
+    (enrolmentId: EnrolmentId, request: BalanceRequest, requestedAt: Instant) =>
+      val assertion = for {
+        id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
 
-      expected = PendingBalanceRequest(
-        balanceId = id,
-        requestedAt = requestedAt,
-        completedAt = None,
-        response = None
-      )
+        expected = PendingBalanceRequest(
+          balanceId = id,
+          enrolmentId = enrolmentId,
+          taxIdentifier = request.taxIdentifier,
+          guaranteeReference = request.guaranteeReference,
+          requestedAt = requestedAt,
+          completedAt = None,
+          response = None
+        )
 
-      actual <- repository.getBalanceRequest(id)
+        actual <- repository.getBalanceRequest(id)
 
-    } yield actual should contain(expected)
+      } yield actual should contain(expected)
 
-    await(assertion.unsafeToFuture())
+      await(assertion.unsafeToFuture())
+  }
+
+  it should "round trip pending balance requests by identifiers" in forAll {
+    (enrolmentId: EnrolmentId, request: BalanceRequest, requestedAt: Instant) =>
+      val assertion = for {
+        id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
+
+        expected = PendingBalanceRequest(
+          balanceId = id,
+          enrolmentId = enrolmentId,
+          taxIdentifier = request.taxIdentifier,
+          guaranteeReference = request.guaranteeReference,
+          requestedAt = requestedAt,
+          completedAt = None,
+          response = None
+        )
+
+        actual <- repository.getBalanceRequest(
+          enrolmentId,
+          request.taxIdentifier,
+          request.guaranteeReference
+        )
+
+      } yield actual should contain(expected)
+
+      await(assertion.unsafeToFuture())
+  }
+
+  it should "return latest request when searching by identifiers" in forAll {
+    (enrolmentId: EnrolmentId, request: BalanceRequest, requestedAt: Instant) =>
+      val assertion = for {
+        _ <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
+
+        _ <- repository.insertBalanceRequest(enrolmentId, request, requestedAt.plusSeconds(60))
+
+        id3 <- repository.insertBalanceRequest(enrolmentId, request, requestedAt.plusSeconds(120))
+
+        expected = PendingBalanceRequest(
+          balanceId = id3,
+          enrolmentId = enrolmentId,
+          taxIdentifier = request.taxIdentifier,
+          guaranteeReference = request.guaranteeReference,
+          requestedAt = requestedAt.plusSeconds(120),
+          completedAt = None,
+          response = None
+        )
+
+        actual <- repository.getBalanceRequest(
+          enrolmentId,
+          request.taxIdentifier,
+          request.guaranteeReference
+        )
+
+      } yield actual should contain(expected)
+
+      await(assertion.unsafeToFuture())
   }
 
   it should "update balance requests with responses" in forAll {
-    (requestedAt: Instant, response: BalanceRequestResponse) =>
+    (
+      enrolmentId: EnrolmentId,
+      request: BalanceRequest,
+      requestedAt: Instant,
+      response: BalanceRequestResponse
+    ) =>
       val assertion = for {
-        id <- repository.insertBalanceRequest(requestedAt)
+        id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
 
         completedAt = clock.instant().`with`(ChronoField.NANO_OF_SECOND, 0)
 
         expected = PendingBalanceRequest(
           balanceId = id,
+          enrolmentId = enrolmentId,
+          taxIdentifier = request.taxIdentifier,
+          guaranteeReference = request.guaranteeReference,
           requestedAt = requestedAt,
           completedAt = Some(completedAt),
           response = Some(response)
@@ -116,8 +189,19 @@ class BalanceRequestRepositorySpec
   }
 
   it should "handle concurrent calls without producing duplicate IDs" in {
-    val now          = clock.instant()
-    val requests     = for (_ <- 1 to 100) yield repository.insertBalanceRequest(now).unsafeToFuture()
+    val enrolmentId = EnrolmentId("12345678ABC")
+    val balanceRequest = BalanceRequest(
+      TaxIdentifier("GB12345678900"),
+      GuaranteeReference("05DE3300BE0001067A001017"),
+      AccessCode("1234")
+    )
+
+    val now = clock.instant()
+
+    val requests =
+      for (_ <- 1 to 100)
+        yield repository.insertBalanceRequest(enrolmentId, balanceRequest, now).unsafeToFuture()
+
     val results      = Future.sequence(requests).futureValue
     val original     = results.toList.sortBy(_.value)
     val deduplicated = results.toSet[BalanceId].toList.sortBy(_.value)

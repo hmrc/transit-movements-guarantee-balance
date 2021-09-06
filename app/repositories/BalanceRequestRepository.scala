@@ -22,8 +22,12 @@ import config.AppConfig
 import models.BalanceRequestResponse
 import models.PendingBalanceRequest
 import models.formats.MongoFormats
+import models.request.BalanceRequest
 import models.values.BalanceId
+import models.values.EnrolmentId
+import models.values.GuaranteeReference
 import models.values.MessageSender
+import models.values.TaxIdentifier
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
 import org.bson.codecs.configuration.CodecRegistries
@@ -35,6 +39,7 @@ import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.model.IndexOptions
 import org.mongodb.scala.model.Indexes
 import org.mongodb.scala.model.ReturnDocument
+import org.mongodb.scala.model.Sorts
 import org.mongodb.scala.model.Updates
 import play.api.Logging
 import retry.RetryPolicies
@@ -57,7 +62,17 @@ import scala.concurrent.ExecutionContext
 trait BalanceRequestRepository {
   def getBalanceRequest(balanceId: BalanceId): IO[Option[PendingBalanceRequest]]
 
-  def insertBalanceRequest(requestedAt: Instant): IO[BalanceId]
+  def getBalanceRequest(
+    enrolmentId: EnrolmentId,
+    taxIdentifier: TaxIdentifier,
+    guaranteeReference: GuaranteeReference
+  ): IO[Option[PendingBalanceRequest]]
+
+  def insertBalanceRequest(
+    enrolmentId: EnrolmentId,
+    balanceRequest: BalanceRequest,
+    requestedAt: Instant
+  ): IO[BalanceId]
 
   def updateBalanceRequest(
     messageSender: MessageSender,
@@ -126,10 +141,34 @@ class BalanceRequestRepositoryImpl @Inject() (
       collection.find(Filters.eq("_id", balanceId.value))
     }
 
-  def insertBalanceRequest(requestedAt: Instant): IO[BalanceId] = {
+  def getBalanceRequest(
+    enrolmentId: EnrolmentId,
+    taxIdentifier: TaxIdentifier,
+    guaranteeReference: GuaranteeReference
+  ): IO[Option[PendingBalanceRequest]] =
+    IO.observeFirstOption {
+      collection
+        .find(
+          Filters.and(
+            Filters.eq("enrolmentId", enrolmentId.value),
+            Filters.eq("taxIdentifier", taxIdentifier.value),
+            Filters.eq("guaranteeReference", guaranteeReference.value)
+          )
+        )
+        .sort(Sorts.descending("requestedAt"))
+    }
+
+  def insertBalanceRequest(
+    enrolmentId: EnrolmentId,
+    balanceRequest: BalanceRequest,
+    requestedAt: Instant
+  ): IO[BalanceId] = {
     val insertResult = BalanceId.next(clock, random).flatMap { id =>
       val pendingRequest = PendingBalanceRequest(
         balanceId = id,
+        enrolmentId = enrolmentId,
+        taxIdentifier = balanceRequest.taxIdentifier,
+        guaranteeReference = balanceRequest.guaranteeReference,
         requestedAt = requestedAt,
         completedAt = None,
         response = None

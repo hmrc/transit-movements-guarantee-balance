@@ -14,22 +14,17 @@
  * limitations under the License.
  */
 
-package connectors
+package models.request
 
-import cats.effect.IO
-import models.values.BalanceId
-import uk.gov.hmrc.http.HeaderCarrier
-import uk.gov.hmrc.http.UpstreamErrorResponse
+sealed abstract class Channel(val name: String) extends Product with Serializable
 
-import java.time.Instant
-import scala.xml.Elem
+object Channel {
+  case object Api extends Channel("api")
+  case object Web extends Channel("web")
 
-case class FakeNCTSMessageConnector(
-  sendMessageResponse: IO[Either[UpstreamErrorResponse, Unit]] = IO.stub
-) extends NCTSMessageConnector {
+  val values: Set[Channel] = Set(Api, Web)
+  val names: Set[String]   = values.map(_.name)
 
-  override def sendMessage(balanceId: BalanceId, requestedAt: Instant, message: Elem)(implicit
-    hc: HeaderCarrier
-  ): IO[Either[UpstreamErrorResponse, Unit]] =
-    sendMessageResponse
+  def withName(name: String): Option[Channel] =
+    values.find(_.name == name)
 }

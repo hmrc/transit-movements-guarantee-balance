@@ -19,16 +19,10 @@ package models.formats
 import cats.data.NonEmptyList
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Format
-import play.api.libs.json.Writes
-
-import scala.xml.Elem
 
 object CommonFormats extends CommonFormats
 
 trait CommonFormats {
-  implicit val elemWrites: Writes[Elem] =
-    Writes.of[String].contramap(_.toString)
-
   implicit def nonEmptyListFormat[A: Format]: Format[NonEmptyList[A]] =
     Format
       .of[List[A]]

@@ -22,6 +22,7 @@ import models.errors.BalanceRequestError
 import models.request.BalanceRequest
 import models.values.EnrolmentId
 import models.values.GuaranteeReference
+import models.values.TaxIdentifier
 import uk.gov.hmrc.http.HeaderCarrier
 
 case class FakeBalanceRequestCacheService(
@@ -35,6 +36,7 @@ case class FakeBalanceRequestCacheService(
 
   override def putBalance(
     enrolmentId: EnrolmentId,
+    taxIdentifier: TaxIdentifier,
     guaranteeReference: GuaranteeReference,
     response: BalanceRequestResponse
   ): IO[Unit] = putBalanceResponse

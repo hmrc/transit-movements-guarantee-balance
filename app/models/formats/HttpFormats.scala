@@ -23,31 +23,42 @@ import models.BalanceRequestSuccess
 import models.BalanceRequestXmlError
 import models.errors._
 import models.values._
-import play.api.libs.json.Format
-import play.api.libs.json.Json
-import play.api.libs.json.OFormat
+import play.api.libs.json._
 import uk.gov.hmrc.play.json.Union
 
 trait HttpFormats extends CommonFormats {
   implicit val balanceIdFormat: Format[BalanceId] =
     Json.valueFormat[BalanceId]
 
-  implicit lazy val upstreamServiceErrorFormat: OFormat[UpstreamServiceError] =
-    Json.format[UpstreamServiceError]
+  def withStatusField(jsObject: JsObject, status: String): JsObject =
+    jsObject ++ Json.obj(ErrorCode.FieldName -> status)
 
-  implicit lazy val internalServiceErrorFormat: OFormat[InternalServiceError] =
-    Json.format[InternalServiceError]
+  implicit lazy val upstreamServiceErrorWrites: OWrites[UpstreamServiceError] =
+    (__ \ "message").write[String].contramap(_.message)
 
-  implicit lazy val upstreamTimeoutErrorFormat: OFormat[UpstreamTimeoutError] =
-    Json.format[UpstreamTimeoutError]
+  implicit lazy val internalServiceErrorWrites: OWrites[InternalServiceError] =
+    (__ \ "message").write[String].contramap(_.message)
 
-  implicit lazy val balanceRequestErrorFormat: OFormat[BalanceRequestError] =
-    Union
-      .from[BalanceRequestError](ErrorCode.FieldName)
-      .and[UpstreamServiceError](ErrorCode.InternalServerError)
-      .and[InternalServiceError](ErrorCode.InternalServerError)
-      .and[UpstreamTimeoutError](ErrorCode.GatewayTimeout)
-      .format
+  implicit lazy val upstreamTimeoutErrorWrites: OWrites[UpstreamTimeoutError] =
+    (__ \ "message").write[String].contramap(_.message)
+
+  implicit lazy val badRequestErrorWrites: OWrites[BadRequestError] =
+    (__ \ "message").write[String].contramap(_.message)
+
+  implicit lazy val balanceRequestErrorWrites: OWrites[BalanceRequestError] =
+    OWrites {
+      case err @ BadRequestError(_) =>
+        withStatusField(badRequestErrorWrites.writes(err), ErrorCode.BadRequest)
+
+      case err @ UpstreamServiceError(_, _) =>
+        withStatusField(upstreamServiceErrorWrites.writes(err), ErrorCode.InternalServerError)
+
+      case err @ InternalServiceError(_, _) =>
+        withStatusField(internalServiceErrorWrites.writes(err), ErrorCode.InternalServerError)
+
+      case err @ UpstreamTimeoutError(_, _) =>
+        withStatusField(upstreamTimeoutErrorWrites.writes(err), ErrorCode.GatewayTimeout)
+    }
 
   implicit lazy val functionalErrorFormat: OFormat[FunctionalError] =
     Json.format[FunctionalError]

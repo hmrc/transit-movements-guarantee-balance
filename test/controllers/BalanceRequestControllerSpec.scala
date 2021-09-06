@@ -20,6 +20,7 @@ import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import config.AppConfig
+import config.Constants
 import controllers.actions.FakeAuthActionProvider
 import models.BalanceRequestFunctionalError
 import models.BalanceRequestResponse
@@ -43,6 +44,7 @@ import play.api.test.FakeRequest
 import play.api.test.Helpers
 import play.api.test.Helpers._
 import services.FakeBalanceRequestCacheService
+import uk.gov.hmrc.http.UpstreamErrorResponse
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
 import java.util.UUID
@@ -81,9 +83,13 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     val balanceRequestSuccess =
       BalanceRequestSuccess(BigDecimal("12345678.90"), CurrencyCode("GBP"))
 
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
     val result = controller(
       getBalanceResponse = IO.pure(Right(balanceRequestSuccess))
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe OK
     contentType(result) shouldBe Some(ContentTypes.JSON)
@@ -106,9 +112,13 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
         NonEmptyList.one(FunctionalError(ErrorType(14), "Foo.Bar(1).Baz", None))
       )
 
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
     val result = controller(
       getBalanceResponse = IO.pure(Right(balanceRequestFunctionalError))
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe OK
     contentType(result) shouldBe Some(ContentTypes.JSON)
@@ -135,9 +145,13 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
         NonEmptyList.one(XmlError(ErrorType(14), "Foo.Bar(1).Baz", None))
       )
 
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
     val result = controller(
       getBalanceResponse = IO.pure(Right(balanceRequestXmlError))
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe INTERNAL_SERVER_ERROR
     contentType(result) shouldBe Some(ContentTypes.JSON)
@@ -157,13 +171,41 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
     val balanceId = BalanceId(uuid)
 
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
     val result = controller(
       getBalanceResponse = IO.pure(Left(UpstreamTimeoutError(balanceId)))
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe ACCEPTED
     contentType(result) shouldBe Some(ContentTypes.JSON)
     contentAsJson(result) shouldBe JsString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+  }
+
+  it should "return 400 when the channel header is missing" in {
+    val balanceRequest = BalanceRequest(
+      TaxIdentifier("GB12345678900"),
+      GuaranteeReference("05DE3300BE0001067A001017"),
+      AccessCode("1234")
+    )
+
+    val balanceRequestSuccess =
+      BalanceRequestSuccess(BigDecimal("12345678.90"), CurrencyCode("GBP"))
+
+    val request = FakeRequest().withBody(balanceRequest)
+
+    val result = controller(
+      getBalanceResponse = IO.pure(Right(balanceRequestSuccess))
+    ).submitBalanceRequest(request)
+
+    status(result) shouldBe BAD_REQUEST
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "code"    -> "BAD_REQUEST",
+      "message" -> "Missing or incorrect Channel header"
+    )
   }
 
   it should "return 500 when there is an upstream service error" in {
@@ -173,9 +215,15 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
       AccessCode("1234")
     )
 
+    val error = UpstreamErrorResponse("Aarghh!!!", 400)
+
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
     val result = controller(
-      getBalanceResponse = IO.pure(Left(UpstreamServiceError()))
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+      getBalanceResponse = IO.pure(Left(UpstreamServiceError(cause = error)))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe INTERNAL_SERVER_ERROR
     contentType(result) shouldBe Some(ContentTypes.JSON)
@@ -192,9 +240,13 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
       AccessCode("1234")
     )
 
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
     val result = controller(
       getBalanceResponse = IO.pure(Left(InternalServiceError()))
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe INTERNAL_SERVER_ERROR
     contentType(result) shouldBe Some(ContentTypes.JSON)
@@ -211,9 +263,13 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
       AccessCode("1234")
     )
 
+    val request = FakeRequest()
+      .withBody(balanceRequest)
+      .withHeaders(Constants.ChannelHeader -> "api")
+
     val result = controller(
       getBalanceResponse = IO.raiseError(new RuntimeException)
-    ).submitBalanceRequest(FakeRequest().withBody(balanceRequest))
+    ).submitBalanceRequest(request)
 
     status(result) shouldBe INTERNAL_SERVER_ERROR
     contentType(result) shouldBe Some(ContentTypes.JSON)

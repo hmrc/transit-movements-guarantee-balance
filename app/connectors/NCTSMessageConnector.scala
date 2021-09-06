@@ -19,6 +19,7 @@ package connectors
 import cats.effect.IO
 import com.google.inject.ImplementedBy
 import config.AppConfig
+import config.Constants
 import models.MessageType
 import models.values.BalanceId
 import play.api.http.ContentTypes
@@ -29,13 +30,17 @@ import uk.gov.hmrc.http.HttpClient
 import uk.gov.hmrc.http.HttpReads.Implicits._
 import uk.gov.hmrc.http.UpstreamErrorResponse
 
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 import scala.xml.Elem
 
 @ImplementedBy(classOf[NCTSMessageConnectorImpl])
 trait NCTSMessageConnector {
-  def sendMessage(balanceId: BalanceId, message: Elem)(implicit
+  def sendMessage(balanceId: BalanceId, requestedAt: Instant, message: Elem)(implicit
     hc: HeaderCarrier
   ): IO[Either[UpstreamErrorResponse, Unit]]
 }
@@ -45,14 +50,18 @@ class NCTSMessageConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient
     extends NCTSMessageConnector
     with IOFutures {
 
-  def sendMessage(balanceId: BalanceId, message: Elem)(implicit
+  val dateFormatter = DateTimeFormatter.RFC_1123_DATE_TIME
+
+  def sendMessage(balanceId: BalanceId, requestedAt: Instant, message: Elem)(implicit
     hc: HeaderCarrier
   ): IO[Either[UpstreamErrorResponse, Unit]] =
     IO.runFuture { implicit ec =>
+      val dateTime       = OffsetDateTime.ofInstant(requestedAt, ZoneOffset.UTC)
       val urlString      = appConfig.eisRouterUrl.toString
       val wrappedMessage = <transitRequest>{message}</transitRequest>
-      val headers = Seq(
+      val headers = hc.headers(Seq(Constants.ChannelHeader)) ++ Seq(
         HeaderNames.ACCEPT       -> ContentTypes.JSON,
+        HeaderNames.DATE         -> dateFormatter.format(dateTime),
         HeaderNames.CONTENT_TYPE -> ContentTypes.XML,
         "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageSender.hexString}",
         "X-Message-Type"         -> MessageType.QueryOnGuarantees.code

@@ -26,12 +26,15 @@ import com.github.blemale.scaffeine.Scaffeine
 import com.google.inject.ImplementedBy
 import com.kenshoo.play.metrics.Metrics
 import config.AppConfig
+import logging.Logging
 import models.BalanceRequestResponse
+import models.PendingBalanceRequest
 import models.errors._
 import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.EnrolmentId
 import models.values.GuaranteeReference
+import models.values.TaxIdentifier
 import uk.gov.hmrc.http.HeaderCarrier
 
 import java.util.concurrent.TimeoutException
@@ -47,6 +50,7 @@ trait BalanceRequestCacheService {
 
   def putBalance(
     enrolmentId: EnrolmentId,
+    taxIdentifier: TaxIdentifier,
     guaranteeReference: GuaranteeReference,
     response: BalanceRequestResponse
   ): IO[Unit]
@@ -57,9 +61,10 @@ class BalanceRequestCacheServiceImpl @Inject() (
   appConfig: AppConfig,
   metrics: Metrics,
   service: BalanceRequestService
-) extends BalanceRequestCacheService {
+) extends BalanceRequestCacheService
+    with Logging {
 
-  type CacheKey         = (EnrolmentId, GuaranteeReference)
+  type CacheKey         = (EnrolmentId, TaxIdentifier, GuaranteeReference)
   type DeferredResponse = Deferred[IO, BalanceRequestResponse]
 
   private val cache: LoadingCache[CacheKey, DeferredResponse] = Scaffeine()
@@ -69,10 +74,22 @@ class BalanceRequestCacheServiceImpl @Inject() (
       Deferred.unsafe[IO, BalanceRequestResponse]
     }
 
-  private def submitRequest(balanceRequest: BalanceRequest)(implicit
+  private def submitRequest(enrolmentId: EnrolmentId, balanceRequest: BalanceRequest)(implicit
     hc: HeaderCarrier
   ): EitherT[IO, BalanceRequestError, BalanceId] =
-    EitherT(service.submitBalanceRequest(balanceRequest))
+    EitherT(service.submitBalanceRequest(enrolmentId, balanceRequest))
+
+  private def getRequest(
+    enrolmentId: EnrolmentId,
+    balanceRequest: BalanceRequest
+  ): EitherT[IO, BalanceRequestError, Option[PendingBalanceRequest]] =
+    EitherT.right[BalanceRequestError](
+      service.getBalanceRequest(
+        enrolmentId,
+        balanceRequest.taxIdentifier,
+        balanceRequest.guaranteeReference
+      )
+    )
 
   private def awaitResponse(
     balanceId: BalanceId,
@@ -89,16 +106,46 @@ class BalanceRequestCacheServiceImpl @Inject() (
   }
 
   private def fetchNewBalance(
+    enrolmentId: EnrolmentId,
     balanceRequest: BalanceRequest,
     deferredResponse: DeferredResponse
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]] = {
 
     val balanceResponse = for {
-      balanceId <- submitRequest(balanceRequest)
+      balanceId <- submitRequest(enrolmentId, balanceRequest)
       response  <- awaitResponse(balanceId, deferredResponse)
     } yield response
 
     balanceResponse.value
+  }
+
+  def awaitExistingBalanceRequest(
+    enrolmentId: EnrolmentId,
+    balanceRequest: BalanceRequest,
+    deferred: DeferredResponse
+  ): IO[Either[BalanceRequestError, BalanceRequestResponse]] = {
+    val getBalanceResponse = for {
+      maybeRequest <- getRequest(enrolmentId, balanceRequest)
+
+      balanceId <- maybeRequest
+        .map { request =>
+          EitherT.pure[IO, BalanceRequestError](request.balanceId)
+        }
+        .getOrElse {
+          EitherT
+            .right[BalanceRequestError](
+              logger.error("Unable to fetch database record for a cached balance request")
+            )
+            .flatMap { _ =>
+              EitherT.leftT[IO, BalanceId](BalanceRequestError.internalServiceError())
+            }
+        }
+
+      response <- awaitResponse(balanceId, deferred)
+
+    } yield response
+
+    getBalanceResponse.value
   }
 
   def getBalance(
@@ -106,25 +153,26 @@ class BalanceRequestCacheServiceImpl @Inject() (
     balanceRequest: BalanceRequest
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]] = {
 
-    val cacheKey = (enrolmentId, balanceRequest.guaranteeReference)
+    val cacheKey = (enrolmentId, balanceRequest.taxIdentifier, balanceRequest.guaranteeReference)
 
     IO(cache.getIfPresent(cacheKey)).flatMap {
       case Some(deferred) =>
-        deferred.get.map(Right.apply)
+        awaitExistingBalanceRequest(enrolmentId, balanceRequest, deferred)
       case None =>
         for {
           deferred <- IO(cache.get(cacheKey))
-          response <- fetchNewBalance(balanceRequest, deferred)
+          response <- fetchNewBalance(enrolmentId, balanceRequest, deferred)
         } yield response
     }
   }
 
   def putBalance(
     enrolmentId: EnrolmentId,
+    taxIdentifier: TaxIdentifier,
     guaranteeReference: GuaranteeReference,
     response: BalanceRequestResponse
   ): IO[Unit] = {
-    val cacheKey = (enrolmentId, guaranteeReference)
+    val cacheKey = (enrolmentId, taxIdentifier, guaranteeReference)
 
     for {
       deferred <- IO(cache.get(cacheKey))

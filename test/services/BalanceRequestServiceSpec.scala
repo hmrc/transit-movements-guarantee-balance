@@ -71,20 +71,31 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     )
   }
 
-  "BalanceRequestService" should "return inserted balance ID when successful" in {
-    val balanceRequest = BalanceRequest(
-      TaxIdentifier("GB12345678900"),
-      GuaranteeReference("05DE3300BE0001067A001017"),
-      AccessCode("1234")
-    )
+  val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+  val balanceId   = BalanceId(uuid)
+  val enrolmentId = EnrolmentId("12345678ABC")
 
-    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId = BalanceId(uuid)
+  val balanceRequest = BalanceRequest(
+    TaxIdentifier("GB12345678900"),
+    GuaranteeReference("05DE3300BE0001067A001017"),
+    AccessCode("1234")
+  )
 
+  val pendingBalanceRequest = PendingBalanceRequest(
+    balanceId,
+    enrolmentId,
+    balanceRequest.taxIdentifier,
+    balanceRequest.guaranteeReference,
+    Instant.now,
+    completedAt = None,
+    response = None
+  )
+
+  "BalanceRequestService.submitBalanceRequest" should "return inserted balance ID when successful" in {
     service(
       insertBalanceRequestResponse = IO.pure(balanceId),
       sendMessageResponse = IO.unit.map(Right.apply)
-    ).submitBalanceRequest(balanceRequest)
+    ).submitBalanceRequest(enrolmentId, balanceRequest)
       .map {
         _ shouldBe Right(balanceId)
       }
@@ -92,69 +103,40 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
   }
 
   it should "return InternalServiceError when there is an upstream client error" in {
-    val balanceRequest = BalanceRequest(
-      TaxIdentifier("GB12345678900"),
-      GuaranteeReference("05DE3300BE0001067A001017"),
-      AccessCode("1234")
-    )
-
-    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId = BalanceId(uuid)
+    val error = UpstreamErrorResponse("Aarghh!!!", 400)
 
     service(
       insertBalanceRequestResponse = IO.pure(balanceId),
-      sendMessageResponse = IO.pure(Left(UpstreamErrorResponse("Aarghh!!!", 400)))
-    ).submitBalanceRequest(balanceRequest)
+      sendMessageResponse = IO.pure(Left(error))
+    ).submitBalanceRequest(enrolmentId, balanceRequest)
       .map {
-        _ shouldBe Left(InternalServiceError())
+        _ shouldBe Left(InternalServiceError.causedBy(error))
       }
       .unsafeToFuture()
   }
 
   it should "return UpstreamServiceError when there is an upstream server error" in {
-    val balanceRequest = BalanceRequest(
-      TaxIdentifier("GB12345678900"),
-      GuaranteeReference("05DE3300BE0001067A001017"),
-      AccessCode("1234")
-    )
-
-    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId = BalanceId(uuid)
+    val error = UpstreamErrorResponse("Kaboom!!!", 500)
 
     service(
       insertBalanceRequestResponse = IO.pure(balanceId),
-      sendMessageResponse = IO.pure(Left(UpstreamErrorResponse("Kaboom!!!", 500)))
-    ).submitBalanceRequest(balanceRequest)
+      sendMessageResponse = IO.pure(Left(error))
+    ).submitBalanceRequest(enrolmentId, balanceRequest)
       .map {
-        _ shouldBe Left(UpstreamServiceError())
+        _ shouldBe Left(UpstreamServiceError.causedBy(error))
       }
       .unsafeToFuture()
   }
 
   it should "propagate database exceptions to the caller" in {
-    val balanceRequest = BalanceRequest(
-      TaxIdentifier("GB12345678900"),
-      GuaranteeReference("05DE3300BE0001067A001017"),
-      AccessCode("1234")
-    )
-
     recoverToSucceededIf[RuntimeException] {
       service(insertBalanceRequestResponse = IO.raiseError(new RuntimeException))
-        .submitBalanceRequest(balanceRequest)
+        .submitBalanceRequest(enrolmentId, balanceRequest)
         .unsafeToFuture()
     }
   }
 
   it should "throw an error when an invalid XML message is generated in self-check mode" in {
-    val balanceRequest = BalanceRequest(
-      TaxIdentifier("GB12345678900"),
-      GuaranteeReference("05DE3300BE0001067A001017"),
-      AccessCode("1234")
-    )
-
-    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId = BalanceId(uuid)
-
     val selfCheckConfig = mkAppConfig(
       Configuration(
         "features.self-check" -> "true"
@@ -202,7 +184,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
         sendMessageResponse = IO.unit.map(Right.apply),
         appConfig = selfCheckConfig,
         formatter = badXmlFormatter
-      ).submitBalanceRequest(balanceRequest)
+      ).submitBalanceRequest(enrolmentId, balanceRequest)
         .unsafeToFuture()
     }.map {
       _.getMessage shouldBe
@@ -214,15 +196,6 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
   }
 
   it should "allow invalid XML messages to be generated when self-check mode is disabled" in {
-    val balanceRequest = BalanceRequest(
-      TaxIdentifier("GB12345678900"),
-      GuaranteeReference("05DE3300BE0001067A001017"),
-      AccessCode("1234")
-    )
-
-    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId = BalanceId(uuid)
-
     val selfCheckDisabledConfig = mkAppConfig(
       Configuration(
         "features.self-check" -> "false"
@@ -243,10 +216,34 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
       sendMessageResponse = IO.unit.map(Right.apply),
       appConfig = selfCheckDisabledConfig,
       formatter = badXmlFormatter
-    ).submitBalanceRequest(balanceRequest)
+    ).submitBalanceRequest(enrolmentId, balanceRequest)
       .map {
         _ shouldBe Right(balanceId)
       }
       .unsafeToFuture()
+  }
+
+  "BalanceRequestService.getBalanceRequest" should "return balance request for provided identifiers when found" in {
+    service(
+      getBalanceRequestResponse = IO.pure(Some(pendingBalanceRequest))
+    ).getBalanceRequest(
+      enrolmentId,
+      balanceRequest.taxIdentifier,
+      balanceRequest.guaranteeReference
+    ).map {
+      _ shouldBe Some(pendingBalanceRequest)
+    }.unsafeToFuture()
+  }
+
+  it should "return None for provided identifiers when the balance request is not found" in {
+    service(
+      getBalanceRequestResponse = IO.pure(None)
+    ).getBalanceRequest(
+      enrolmentId,
+      balanceRequest.taxIdentifier,
+      balanceRequest.guaranteeReference
+    ).map {
+      _ shouldBe None
+    }.unsafeToFuture()
   }
 }
