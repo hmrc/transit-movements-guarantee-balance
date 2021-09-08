@@ -20,7 +20,7 @@ import cats.effect.IO
 import cats.syntax.all._
 import config.AppConfig
 import connectors.EisRouterConnector
-import logging.Logging
+import models.BalanceRequestResponse
 import models.MessageType
 import models.PendingBalanceRequest
 import models.errors._
@@ -28,6 +28,7 @@ import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.EnrolmentId
 import models.values.GuaranteeReference
+import models.values.MessageIdentifier
 import models.values.TaxIdentifier
 import models.values.UniqueReference
 import repositories.BalanceRequestRepository
@@ -46,7 +47,7 @@ class BalanceRequestService @Inject() (
   connector: EisRouterConnector,
   appConfig: AppConfig,
   clock: Clock
-) extends Logging {
+) {
   def submitBalanceRequest(
     enrolmentId: EnrolmentId,
     request: BalanceRequest
@@ -84,24 +85,6 @@ class BalanceRequestService @Inject() (
         }
       }
 
-      _ <- result.fold(
-        {
-          case UpstreamServiceError(_, cause) =>
-            logger.error(cause)("Error when calling upstream service")
-          case InternalServiceError(_, Some(cause)) =>
-            logger.error(cause)("Error when requesting balance")
-          case BadRequestError(message) =>
-            logger.error(s"Error in request data: ${message}")
-          case InternalServiceError(message, None) =>
-            logger.error(s"Error when requesting balance: ${message}")
-          case UpstreamTimeoutError(balanceId, message) =>
-            logger.error(
-              s"Error awaiting upstream response for balance ID ${balanceId.value}: ${message}"
-            )
-        },
-        _ => IO.unit
-      )
-
     } yield result
 
   def getBalanceRequest(
@@ -110,4 +93,13 @@ class BalanceRequestService @Inject() (
     guaranteeReference: GuaranteeReference
   ): IO[Option[PendingBalanceRequest]] =
     repository.getBalanceRequest(enrolmentId, taxIdentifier, guaranteeReference)
+
+  def updateBalanceRequest(
+    recipient: MessageIdentifier,
+    response: BalanceRequestResponse
+  ): IO[Option[PendingBalanceRequest]] =
+    for {
+      completedAt <- IO(clock.instant())
+      updated     <- repository.updateBalanceRequest(recipient, completedAt, response)
+    } yield updated
 }

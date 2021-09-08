@@ -20,6 +20,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import config.AppConfig
 import connectors.FakeEisRouterConnector
+import models.BalanceRequestSuccess
 import models.PendingBalanceRequest
 import models.errors.InternalServiceError
 import models.errors.SelfCheckError
@@ -64,7 +65,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     new BalanceRequestService(
       repository,
       formatter,
-      new XmlValidationService,
+      new XmlValidationServiceImpl,
       FakeEisRouterConnector(sendMessageResponse),
       appConfig,
       Clock.systemUTC()
@@ -245,5 +246,32 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     ).map {
       _ shouldBe None
     }.unsafeToFuture()
+  }
+
+  "BalanceRequestService.updateBalanceRequest" should "delegate to repository" in {
+    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId   = BalanceId(uuid)
+    val enrolmentId = EnrolmentId("12345678ABC")
+
+    val balanceRequestSuccess =
+      BalanceRequestSuccess(BigDecimal("12345678.90"), CurrencyCode("GBP"))
+
+    val updatedBalanceRequest = PendingBalanceRequest(
+      balanceId,
+      enrolmentId,
+      TaxIdentifier("GB12345678900"),
+      GuaranteeReference("05DE3300BE0001067A001017"),
+      Instant.now.minusSeconds(5),
+      completedAt = Some(Instant.now),
+      Some(balanceRequestSuccess)
+    )
+
+    service(
+      updateBalanceRequestResponse = IO.some(updatedBalanceRequest)
+    ).updateBalanceRequest(balanceId.messageIdentifier, balanceRequestSuccess)
+      .map {
+        _ shouldBe Some(updatedBalanceRequest)
+      }
+      .unsafeToFuture()
   }
 }

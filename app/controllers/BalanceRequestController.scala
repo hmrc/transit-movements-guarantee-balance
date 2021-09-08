@@ -54,7 +54,8 @@ class BalanceRequestController @Inject() (
 ) extends BackendController(cc)
     with IOActions
     with HttpFormats
-    with Logging {
+    with Logging
+    with ErrorLogging {
 
   private def requireChannelHeader[A](
     result: => IO[Result]
@@ -74,6 +75,7 @@ class BalanceRequestController @Inject() (
       requireChannelHeader {
         service
           .getBalance(request.enrolmentId, request.body)
+          .flatTap(logServiceError("submitting balance request", _))
           .map {
             case Right(success @ BalanceRequestSuccess(_, _)) =>
               Ok(Json.toJson[BalanceRequestResponse](success))
@@ -95,6 +97,9 @@ class BalanceRequestController @Inject() (
 
             case Left(error @ InternalServiceError(_, _)) =>
               InternalServerError(Json.toJson[BalanceRequestError](error))
+
+            case Left(_) =>
+              InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
           }
           .recoverWith { case NonFatal(e) =>
             logger.error(e)("Unhandled exception thrown").map { _ =>

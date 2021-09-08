@@ -16,10 +16,78 @@
 
 package controllers
 
+import cats.effect.IO
+import cats.effect.unsafe.IORuntime
+import cats.syntax.all._
+import config.Constants
+import controllers.actions.IOActions
+import logging.Logging
+import models.MessageType
+import models.errors.BadRequestError
+import models.errors.BalanceRequestError
+import models.errors.InternalServiceError
+import models.errors.NotFoundError
+import models.errors.XmlValidationError
+import models.formats.HttpFormats
+import models.values.MessageIdentifier
+import play.api.libs.json.Json
 import play.api.mvc.ControllerComponents
+import play.api.mvc.Request
+import play.api.mvc.Result
+import services.BalanceRequestCacheService
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import javax.inject.Inject
+import scala.util.control.NonFatal
 
-class BalanceRequestResponseController @Inject() (cc: ControllerComponents)
-    extends BackendController(cc) {}
+class BalanceRequestResponseController @Inject() (
+  cache: BalanceRequestCacheService,
+  cc: ControllerComponents,
+  val runtime: IORuntime
+) extends BackendController(cc)
+    with IOActions
+    with HttpFormats
+    with Logging
+    with ErrorLogging {
+
+  private def requireMessageTypeHeader[A](
+    result: MessageType => IO[Result]
+  )(implicit request: Request[A]): IO[Result] =
+    request.headers
+      .get(Constants.MessageTypeHeader)
+      .flatMap(MessageType.withName)
+      .map(result)
+      .getOrElse {
+        val error     = BadRequestError("Missing or incorrect X-Message-Type header")
+        val errorJson = Json.toJson[BalanceRequestError](error)
+        IO.pure(BadRequest(errorJson))
+      }
+
+  def updateBalanceRequest(recipient: MessageIdentifier) = Action.io(parse.tolerantText) {
+    implicit request =>
+      requireMessageTypeHeader { messageType =>
+        cache
+          .updateBalanceRequest(recipient, messageType, request.body)
+          .flatTap(logServiceError("updating balance request", _))
+          .map {
+            case Right(_) =>
+              Ok
+            case Left(error @ BadRequestError(_)) =>
+              BadRequest(Json.toJson[BalanceRequestError](error))
+            case Left(error @ XmlValidationError(_, _)) =>
+              BadRequest(Json.toJson[BalanceRequestError](error))
+            case Left(error @ NotFoundError(_)) =>
+              NotFound(Json.toJson[BalanceRequestError](error))
+            case Left(_) =>
+              InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
+          }
+          .recoverWith { case NonFatal(e) =>
+            logger.error(e)("Unhandled exception thrown").map { _ =>
+              val error     = InternalServiceError.causedBy(e)
+              val errorJson = Json.toJson[BalanceRequestError](error)
+              InternalServerError(errorJson)
+            }
+          }
+      }
+  }
+}

@@ -35,7 +35,7 @@ class XmlValidationServiceSpec extends AnyFlatSpec with Matchers with EitherValu
     DatatypeConverter.printHexBinary(bytes)
   }
 
-  val service = new XmlValidationService
+  val service = new XmlValidationServiceImpl
 
   val validQueryXml = {
     <CD034A>

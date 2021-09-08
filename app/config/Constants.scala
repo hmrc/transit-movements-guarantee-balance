@@ -17,5 +17,6 @@
 package config
 
 object Constants {
-  val ChannelHeader = "Channel"
+  val ChannelHeader     = "Channel"
+  val MessageTypeHeader = "X-Message-Type"
 }

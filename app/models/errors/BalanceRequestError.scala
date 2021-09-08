@@ -16,7 +16,11 @@
 
 package models.errors
 
+import cats.data.NonEmptyList
+import models.MessageType
+import models.SchemaValidationError
 import models.values.BalanceId
+import models.values.MessageIdentifier
 import uk.gov.hmrc.http.UpstreamErrorResponse
 
 sealed abstract class BalanceRequestError extends Product with Serializable {
@@ -24,6 +28,13 @@ sealed abstract class BalanceRequestError extends Product with Serializable {
 }
 
 case class BadRequestError(message: String) extends BalanceRequestError
+
+case class NotFoundError(message: String) extends BalanceRequestError
+
+case class XmlValidationError(messageType: MessageType, errors: NonEmptyList[SchemaValidationError])
+    extends BalanceRequestError {
+  lazy val message: String = s"Error while validating ${messageType.code} message"
+}
 
 case class UpstreamServiceError(
   message: String = "Internal server error",
@@ -49,6 +60,23 @@ case class UpstreamTimeoutError(balanceId: BalanceId, message: String = "Gateway
     extends BalanceRequestError
 
 object BalanceRequestError {
+  def notFoundError(message: String): BalanceRequestError =
+    NotFoundError(message)
+
+  def notFoundError(recipient: MessageIdentifier): BalanceRequestError =
+    NotFoundError(
+      s"The balance request with message identifier MDTP-GUA-${recipient.hexString} was not found"
+    )
+
+  def badRequestError(message: String): BadRequestError =
+    BadRequestError(message)
+
+  def xmlValidationError(
+    messageType: MessageType,
+    errors: NonEmptyList[SchemaValidationError]
+  ): BalanceRequestError =
+    XmlValidationError(messageType, errors)
+
   def upstreamServiceError(
     message: String = "Internal server error",
     cause: UpstreamErrorResponse

@@ -16,13 +16,16 @@
 
 package models.formats
 
+import cats.data.NonEmptyList
 import models.BalanceRequestFunctionalError
 import models.BalanceRequestResponse
 import models.BalanceRequestResponseStatus
 import models.BalanceRequestSuccess
 import models.BalanceRequestXmlError
+import models.SchemaValidationError
 import models.errors._
 import models.values._
+import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.play.json.Union
 
@@ -48,8 +51,10 @@ trait HttpFormats extends CommonFormats {
   implicit lazy val notFoundErrorWrites: OWrites[NotFoundError] =
     (__ \ "message").write[String].contramap(_.message)
 
-  implicit lazy val xmlValidationErrorWrites: OWrites[XmlValidationError] =
-    (__ \ "message").write[String].contramap(_.message)
+  implicit lazy val xmlValidationErrorWrites: OWrites[XmlValidationError] = (
+    (__ \ "message").write[String] and
+      (__ \ "errors").write[NonEmptyList[SchemaValidationError]]
+  )(error => (error.message, error.errors))
 
   implicit lazy val balanceRequestErrorWrites: OWrites[BalanceRequestError] =
     OWrites {
@@ -71,6 +76,9 @@ trait HttpFormats extends CommonFormats {
       case err @ XmlValidationError(_, _) =>
         withStatusField(xmlValidationErrorWrites.writes(err), ErrorCode.SchemaValidation)
     }
+
+  implicit lazy val schemaValidationError: OFormat[SchemaValidationError] =
+    Json.format[SchemaValidationError]
 
   implicit lazy val functionalErrorFormat: OFormat[FunctionalError] =
     Json.format[FunctionalError]

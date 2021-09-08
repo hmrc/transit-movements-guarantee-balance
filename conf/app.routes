@@ -1,4 +1,6 @@
 # microservice specific routes
 
-POST    /balances        controllers.BalanceRequestController.submitBalanceRequest
-GET     /balances/:id    controllers.BalanceRequestController.getBalanceRequest(id: BalanceId)
+POST    /balances            controllers.BalanceRequestController.submitBalanceRequest
+GET     /balances/:id        controllers.BalanceRequestController.getBalanceRequest(id: BalanceId)
+
+POST    /balances/:recipient controllers.BalanceRequestResponseController.updateBalanceRequest(recipient: MessageIdentifier)
