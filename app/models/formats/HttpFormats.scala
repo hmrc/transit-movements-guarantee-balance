@@ -45,6 +45,12 @@ trait HttpFormats extends CommonFormats {
   implicit lazy val badRequestErrorWrites: OWrites[BadRequestError] =
     (__ \ "message").write[String].contramap(_.message)
 
+  implicit lazy val notFoundErrorWrites: OWrites[NotFoundError] =
+    (__ \ "message").write[String].contramap(_.message)
+
+  implicit lazy val xmlValidationErrorWrites: OWrites[XmlValidationError] =
+    (__ \ "message").write[String].contramap(_.message)
+
   implicit lazy val balanceRequestErrorWrites: OWrites[BalanceRequestError] =
     OWrites {
       case err @ BadRequestError(_) =>
@@ -58,6 +64,12 @@ trait HttpFormats extends CommonFormats {
 
       case err @ UpstreamTimeoutError(_, _) =>
         withStatusField(upstreamTimeoutErrorWrites.writes(err), ErrorCode.GatewayTimeout)
+
+      case err @ NotFoundError(_) =>
+        withStatusField(notFoundErrorWrites.writes(err), ErrorCode.NotFound)
+
+      case err @ XmlValidationError(_, _) =>
+        withStatusField(xmlValidationErrorWrites.writes(err), ErrorCode.SchemaValidation)
     }
 
   implicit lazy val functionalErrorFormat: OFormat[FunctionalError] =

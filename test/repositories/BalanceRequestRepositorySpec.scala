@@ -175,7 +175,7 @@ class BalanceRequestRepositorySpec
         )
 
         actual <- repository.updateBalanceRequest(
-          id.messageSender,
+          id.messageIdentifier,
           completedAt,
           response
         )

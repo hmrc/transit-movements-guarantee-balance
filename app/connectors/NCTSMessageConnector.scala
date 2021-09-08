@@ -60,10 +60,10 @@ class NCTSMessageConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient
       val urlString      = appConfig.eisRouterUrl.toString
       val wrappedMessage = <transitRequest>{message}</transitRequest>
       val headers = hc.headers(Seq(Constants.ChannelHeader)) ++ Seq(
-        HeaderNames.ACCEPT       -> ContentTypes.JSON,
+        HeaderNames.ACCEPT       -> ContentTypes.XML,
         HeaderNames.DATE         -> dateFormatter.format(dateTime),
         HeaderNames.CONTENT_TYPE -> ContentTypes.XML,
-        "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageSender.hexString}",
+        "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageIdentifier.hexString}",
         "X-Message-Type"         -> MessageType.QueryOnGuarantees.code
       )
       http.POSTString[Either[UpstreamErrorResponse, Unit]](

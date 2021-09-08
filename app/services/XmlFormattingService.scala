@@ -18,7 +18,7 @@ package services
 
 import com.google.inject.ImplementedBy
 import models.request.BalanceRequest
-import models.values.MessageSender
+import models.values.MessageIdentifier
 import models.values._
 
 import java.time.Instant
@@ -44,8 +44,8 @@ class XmlFormattingServiceImpl @Inject() () extends XmlFormattingService {
     DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC)
   private val timeFormatter =
     DateTimeFormatter.ofPattern("HHmm").withZone(ZoneOffset.UTC)
-  private def messageSender(sender: MessageSender) =
-    s"MDTP-GUA-${sender.hexString}"
+  private def messageIdentifier(id: MessageIdentifier) =
+    s"MDTP-GUA-${id.hexString}"
 
   override def formatMessage(
     balanceId: BalanceId,
@@ -56,7 +56,7 @@ class XmlFormattingServiceImpl @Inject() () extends XmlFormattingService {
     <CD034A>
       <SynIdeMES1>UNOC</SynIdeMES1>
       <SynVerNumMES2>3</SynVerNumMES2>
-      <MesSenMES3>{messageSender(balanceId.messageSender)}</MesSenMES3>
+      <MesSenMES3>{messageIdentifier(balanceId.messageIdentifier)}</MesSenMES3>
       <MesRecMES6>NTA.GB</MesRecMES6>
       <DatOfPreMES9>{dateFormatter.format(requestedAt)}</DatOfPreMES9>
       <TimOfPreMES10>{timeFormatter.format(requestedAt)}</TimOfPreMES10>
