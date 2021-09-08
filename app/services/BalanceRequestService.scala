@@ -19,7 +19,7 @@ package services
 import cats.effect.IO
 import cats.syntax.all._
 import config.AppConfig
-import connectors.NCTSMessageConnector
+import connectors.EisRouterConnector
 import logging.Logging
 import models.MessageType
 import models.PendingBalanceRequest
@@ -43,7 +43,7 @@ class BalanceRequestService @Inject() (
   repository: BalanceRequestRepository,
   formatter: XmlFormattingService,
   validator: XmlValidationService,
-  connector: NCTSMessageConnector,
+  connector: EisRouterConnector,
   appConfig: AppConfig,
   clock: Clock
 ) extends Logging {

@@ -22,7 +22,7 @@ import cats.effect.kernel.Outcome
 import cats.effect.kernel.Ref
 import cats.effect.unsafe.implicits.global
 import config.AppConfig
-import connectors.FakeNCTSMessageConnector
+import connectors.FakeEisRouterConnector
 import metrics.FakeMetrics
 import models.BalanceRequestFunctionalError
 import models.BalanceRequestSuccess
@@ -73,7 +73,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       ),
       new XmlFormattingServiceImpl,
       new XmlValidationService,
-      FakeNCTSMessageConnector(sendMessageResponse),
+      FakeEisRouterConnector(sendMessageResponse),
       appConfig,
       Clock.systemUTC()
     )

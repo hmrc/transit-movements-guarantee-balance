@@ -59,7 +59,7 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
 
   val pendingBalanceRequestJson = Json.obj(
     "_id"                -> uuid(base64 = "IrmJniTuSOahiZfR9FORxA=="),
-    "messageIdentifier"      -> binary(base64 = "IrmJniTuSOahiZfR"),
+    "messageIdentifier"  -> binary(base64 = "IrmJniTuSOahiZfR"),
     "enrolmentId"        -> enrolmentId.value,
     "taxIdentifier"      -> taxIdentifier.value,
     "guaranteeReference" -> guaranteeReference.value,

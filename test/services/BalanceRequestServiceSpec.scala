@@ -19,7 +19,7 @@ package services
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import config.AppConfig
-import connectors.FakeNCTSMessageConnector
+import connectors.FakeEisRouterConnector
 import models.PendingBalanceRequest
 import models.errors.InternalServiceError
 import models.errors.SelfCheckError
@@ -65,7 +65,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
       repository,
       formatter,
       new XmlValidationService,
-      FakeNCTSMessageConnector(sendMessageResponse),
+      FakeEisRouterConnector(sendMessageResponse),
       appConfig,
       Clock.systemUTC()
     )
