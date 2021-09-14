@@ -262,7 +262,7 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     )
   }
 
-  it should "return 500 when there is a runtime exception" in {
+  it should "return 500 when there is an unhandled runtime exception" in {
     val balanceRequest = BalanceRequest(
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
@@ -368,6 +368,22 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     contentAsJson(result) shouldBe Json.obj(
       "code"    -> "NOT_FOUND",
       "message" -> "The balance request with ID 22b9899e-24ee-48e6-a189-97d1f45391c4 was not found"
+    )
+  }
+
+  it should "return 500 when there is an unhandled runtime exception" in {
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
+
+    val result = controller(
+      getBalanceByIdResponse = IO.raiseError(new RuntimeException)
+    ).getBalanceRequest(balanceId)(FakeRequest())
+
+    status(result) shouldBe INTERNAL_SERVER_ERROR
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "code"    -> "INTERNAL_SERVER_ERROR",
+      "message" -> "Internal server error"
     )
   }
 }

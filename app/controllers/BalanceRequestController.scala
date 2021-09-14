@@ -121,5 +121,12 @@ class BalanceRequestController @Inject() (
           case None =>
             NotFound(Json.toJson(BalanceRequestError.notFoundError(balanceId)))
         }
+        .recoverWith { case NonFatal(e) =>
+          logger.error(e)("Unhandled exception thrown").map { _ =>
+            val error     = InternalServiceError.causedBy(e)
+            val errorJson = Json.toJson[BalanceRequestError](error)
+            InternalServerError(errorJson)
+          }
+        }
     }
 }
