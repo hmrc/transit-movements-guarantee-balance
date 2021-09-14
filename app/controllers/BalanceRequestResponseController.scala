@@ -38,8 +38,10 @@ import services.BalanceRequestCacheService
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import javax.inject.Inject
+import javax.inject.Singleton
 import scala.util.control.NonFatal
 
+@Singleton
 class BalanceRequestResponseController @Inject() (
   cache: BalanceRequestCacheService,
   cc: ControllerComponents,
