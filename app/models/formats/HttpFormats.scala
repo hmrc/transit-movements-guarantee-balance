@@ -22,6 +22,7 @@ import models.BalanceRequestResponse
 import models.BalanceRequestResponseStatus
 import models.BalanceRequestSuccess
 import models.BalanceRequestXmlError
+import models.PendingBalanceRequest
 import models.SchemaValidationError
 import models.errors._
 import models.values._
@@ -102,4 +103,7 @@ trait HttpFormats extends CommonFormats {
       .and[BalanceRequestFunctionalError](BalanceRequestResponseStatus.FunctionalError)
       .and[BalanceRequestXmlError](BalanceRequestResponseStatus.XmlError)
       .format
+
+  implicit lazy val pendingBalanceRequestFormat: OFormat[PendingBalanceRequest] =
+    Json.format[PendingBalanceRequest]
 }

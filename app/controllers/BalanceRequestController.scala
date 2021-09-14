@@ -111,8 +111,15 @@ class BalanceRequestController @Inject() (
       }
     }
 
-  def getBalanceRequest(id: BalanceId): Action[AnyContent] =
-    authenticate().io { _ =>
-      IO.pure(NotFound)
+  def getBalanceRequest(balanceId: BalanceId): Action[AnyContent] =
+    authenticate().io { implicit request =>
+      service
+        .getBalance(balanceId)
+        .map {
+          case Some(request) =>
+            Ok(Json.toJson(request))
+          case None =>
+            NotFound(Json.toJson(BalanceRequestError.notFoundError(balanceId)))
+        }
     }
 }

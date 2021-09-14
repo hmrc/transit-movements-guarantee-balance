@@ -88,6 +88,11 @@ class BalanceRequestService @Inject() (
     } yield result
 
   def getBalanceRequest(
+    balanceId: BalanceId
+  ): IO[Option[PendingBalanceRequest]] =
+    repository.getBalanceRequest(balanceId)
+
+  def getBalanceRequest(
     enrolmentId: EnrolmentId,
     taxIdentifier: TaxIdentifier,
     guaranteeReference: GuaranteeReference

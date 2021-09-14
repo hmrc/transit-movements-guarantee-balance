@@ -52,6 +52,10 @@ trait BalanceRequestCacheService {
     balanceRequest: BalanceRequest
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]]
 
+  def getBalance(
+    balanceId: BalanceId
+  )(implicit hc: HeaderCarrier): IO[Option[PendingBalanceRequest]]
+
   def putBalance(
     enrolmentId: EnrolmentId,
     taxIdentifier: TaxIdentifier,
@@ -178,6 +182,11 @@ class BalanceRequestCacheServiceImpl @Inject() (
         } yield response
     }
   }
+
+  def getBalance(
+    balanceId: BalanceId
+  )(implicit hc: HeaderCarrier): IO[Option[PendingBalanceRequest]] =
+    service.getBalanceRequest(balanceId)
 
   def putBalance(
     enrolmentId: EnrolmentId,

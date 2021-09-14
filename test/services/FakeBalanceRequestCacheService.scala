@@ -19,8 +19,10 @@ package services
 import cats.effect.IO
 import models.BalanceRequestResponse
 import models.MessageType
+import models.PendingBalanceRequest
 import models.errors.BalanceRequestError
 import models.request.BalanceRequest
+import models.values.BalanceId
 import models.values.EnrolmentId
 import models.values.GuaranteeReference
 import models.values.MessageIdentifier
@@ -29,9 +31,15 @@ import uk.gov.hmrc.http.HeaderCarrier
 
 case class FakeBalanceRequestCacheService(
   getBalanceResponse: IO[Either[BalanceRequestError, BalanceRequestResponse]] = IO.stub,
+  getBalanceByIdResponse: IO[Option[PendingBalanceRequest]] = IO.stub,
   putBalanceResponse: IO[Unit] = IO.unit,
   updateBalanceResponse: IO[Either[BalanceRequestError, Unit]] = IO.stub
 ) extends BalanceRequestCacheService {
+
+  override def getBalance(balanceId: BalanceId)(implicit
+    hc: HeaderCarrier
+  ): IO[Option[PendingBalanceRequest]] =
+    getBalanceByIdResponse
 
   override def getBalance(enrolmentId: EnrolmentId, balanceRequest: BalanceRequest)(implicit
     hc: HeaderCarrier
