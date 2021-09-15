@@ -16,10 +16,12 @@
 
 package services
 
+import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.all._
 import config.AppConfig
 import connectors.EisRouterConnector
+import logging.Logging
 import models.BalanceRequestResponse
 import models.MessageType
 import models.PendingBalanceRequest
@@ -36,18 +38,22 @@ import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse._
 
 import java.time.Clock
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
+import scala.xml.Elem
 
 @Singleton
 class BalanceRequestService @Inject() (
   repository: BalanceRequestRepository,
   formatter: XmlFormattingService,
   validator: XmlValidationService,
+  parser: XmlParsingService,
   connector: EisRouterConnector,
   appConfig: AppConfig,
   clock: Clock
-) {
+) extends Logging {
+
   def submitBalanceRequest(
     enrolmentId: EnrolmentId,
     request: BalanceRequest
@@ -99,12 +105,51 @@ class BalanceRequestService @Inject() (
   ): IO[Option[PendingBalanceRequest]] =
     repository.getBalanceRequest(enrolmentId, taxIdentifier, guaranteeReference)
 
+  private def validateResponseMessage(
+    messageType: MessageType,
+    responseMessage: String
+  ): EitherT[IO, BalanceRequestError, Elem] =
+    EitherT
+      .fromEither[IO] {
+        validator.validate(messageType, responseMessage)
+      }
+      .leftMap { errors =>
+        BalanceRequestError.xmlValidationError(messageType, errors)
+      }
+
+  private def parseResponseMessage(
+    messageType: MessageType,
+    message: Elem
+  ): EitherT[IO, BalanceRequestError, BalanceRequestResponse] =
+    EitherT.fromEither[IO] {
+      parser.parseResponseMessage(messageType, message)
+    }
+
+  private def updateBalanceRequestRecord(
+    recipient: MessageIdentifier,
+    completedAt: Instant,
+    response: BalanceRequestResponse
+  ): EitherT[IO, BalanceRequestError, PendingBalanceRequest] =
+    EitherT.fromOptionF(
+      repository.updateBalanceRequest(recipient, completedAt, response),
+      BalanceRequestError.notFoundError(recipient)
+    )
+
   def updateBalanceRequest(
     recipient: MessageIdentifier,
-    response: BalanceRequestResponse
-  ): IO[Option[PendingBalanceRequest]] =
-    for {
-      completedAt <- IO(clock.instant())
-      updated     <- repository.updateBalanceRequest(recipient, completedAt, response)
+    messageType: MessageType,
+    responseMessage: String
+  ): IO[Either[BalanceRequestError, PendingBalanceRequest]] = {
+    val updateBalance = for {
+      validated <- validateResponseMessage(messageType, responseMessage)
+
+      response <- parseResponseMessage(messageType, validated)
+
+      completedAt <- EitherT.liftF(IO(clock.instant()))
+
+      updated <- updateBalanceRequestRecord(recipient, completedAt, response)
     } yield updated
+
+    updateBalance.value
+  }
 }

@@ -54,7 +54,7 @@ case class FakeBalanceRequestCacheService(
   ): IO[Unit] =
     putBalanceResponse
 
-  override def updateBalanceRequest(
+  override def updateBalance(
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
