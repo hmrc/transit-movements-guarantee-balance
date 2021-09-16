@@ -26,6 +26,7 @@ import models.BalanceRequestFunctionalError
 import models.BalanceRequestResponse
 import models.BalanceRequestSuccess
 import models.BalanceRequestXmlError
+import models.PendingBalanceRequest
 import models.errors.BalanceRequestError
 import models.errors.FunctionalError
 import models.errors.InternalServiceError
@@ -47,6 +48,9 @@ import services.FakeBalanceRequestCacheService
 import uk.gov.hmrc.http.UpstreamErrorResponse
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 
 class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
@@ -58,10 +62,12 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
   def controller(
     getBalanceResponse: IO[Either[BalanceRequestError, BalanceRequestResponse]] = IO.stub,
+    getBalanceByIdResponse: IO[Option[PendingBalanceRequest]] = IO.stub,
     putBalanceResponse: IO[Unit] = IO.unit
   ) = {
     val service = FakeBalanceRequestCacheService(
       getBalanceResponse,
+      getBalanceByIdResponse,
       putBalanceResponse
     )
 
@@ -256,7 +262,7 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     )
   }
 
-  it should "return 500 when there is a runtime exception" in {
+  it should "return 500 when there is an unhandled runtime exception" in {
     val balanceRequest = BalanceRequest(
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
@@ -279,8 +285,105 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     )
   }
 
-  "BalanceRequestController.getBalanceRequest" should "return 404 when the balance request is not found" in {
-    val result = controller().getBalanceRequest(BalanceId(UUID.randomUUID()))(FakeRequest())
+  "BalanceRequestController.getBalanceRequest" should "return 200 when the balance request is found but has no response" in {
+    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId   = BalanceId(uuid)
+    val requestedAt = OffsetDateTime.of(LocalDateTime.of(2021, 9, 14, 9, 52, 15), ZoneOffset.UTC)
+
+    val pendingBalanceRequest = PendingBalanceRequest(
+      balanceId,
+      EnrolmentId("12345678ABC"),
+      TaxIdentifier("GB12345678900"),
+      GuaranteeReference("05DE3300BE0001067A001017"),
+      requestedAt.toInstant,
+      completedAt = None,
+      response = None
+    )
+
+    val result = controller(
+      getBalanceByIdResponse = IO.some(pendingBalanceRequest)
+    ).getBalanceRequest(balanceId)(FakeRequest())
+
+    status(result) shouldBe OK
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "balanceId"          -> "22b9899e-24ee-48e6-a189-97d1f45391c4",
+      "enrolmentId"        -> "12345678ABC",
+      "taxIdentifier"      -> "GB12345678900",
+      "guaranteeReference" -> "05DE3300BE0001067A001017",
+      "requestedAt"        -> "2021-09-14T09:52:15Z"
+    )
+  }
+
+  it should "return 200 when the balance request is found and has a response" in {
+    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId   = BalanceId(uuid)
+    val requestedAt = OffsetDateTime.of(LocalDateTime.of(2021, 9, 14, 9, 52, 15), ZoneOffset.UTC)
+    val completedAt = OffsetDateTime.of(LocalDateTime.of(2021, 9, 14, 9, 53, 5), ZoneOffset.UTC)
+
+    val balanceRequestSuccess =
+      BalanceRequestSuccess(BigDecimal("1212211848.45"), CurrencyCode("GBP"))
+
+    val pendingBalanceRequest = PendingBalanceRequest(
+      balanceId,
+      EnrolmentId("12345678ABC"),
+      TaxIdentifier("GB12345678900"),
+      GuaranteeReference("05DE3300BE0001067A001017"),
+      requestedAt.toInstant,
+      completedAt = Some(completedAt.toInstant),
+      response = Some(balanceRequestSuccess)
+    )
+
+    val result = controller(
+      getBalanceByIdResponse = IO.some(pendingBalanceRequest)
+    ).getBalanceRequest(balanceId)(FakeRequest())
+
+    status(result) shouldBe OK
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "balanceId"          -> "22b9899e-24ee-48e6-a189-97d1f45391c4",
+      "enrolmentId"        -> "12345678ABC",
+      "taxIdentifier"      -> "GB12345678900",
+      "guaranteeReference" -> "05DE3300BE0001067A001017",
+      "requestedAt"        -> "2021-09-14T09:52:15Z",
+      "completedAt"        -> "2021-09-14T09:53:05Z",
+      "response" -> Json.obj(
+        "status"   -> "SUCCESS",
+        "balance"  -> 1212211848.45,
+        "currency" -> "GBP"
+      )
+    )
+  }
+
+  it should "return 404 when the balance request is not found" in {
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
+
+    val result = controller(
+      getBalanceByIdResponse = IO.none
+    ).getBalanceRequest(balanceId)(FakeRequest())
+
     status(result) shouldBe NOT_FOUND
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "code"    -> "NOT_FOUND",
+      "message" -> "The balance request with ID 22b9899e-24ee-48e6-a189-97d1f45391c4 was not found"
+    )
+  }
+
+  it should "return 500 when there is an unhandled runtime exception" in {
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
+
+    val result = controller(
+      getBalanceByIdResponse = IO.raiseError(new RuntimeException)
+    ).getBalanceRequest(balanceId)(FakeRequest())
+
+    status(result) shouldBe INTERNAL_SERVER_ERROR
+    contentType(result) shouldBe Some(ContentTypes.JSON)
+    contentAsJson(result) shouldBe Json.obj(
+      "code"    -> "INTERNAL_SERVER_ERROR",
+      "message" -> "Internal server error"
+    )
   }
 }

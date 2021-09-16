@@ -69,7 +69,7 @@ class BalanceRequestResponseController @Inject() (
     implicit request =>
       requireMessageTypeHeader { messageType =>
         cache
-          .updateBalanceRequest(recipient, messageType, request.body)
+          .updateBalance(recipient, messageType, request.body)
           .flatTap(logServiceError("updating balance request", _))
           .map {
             case Right(_) =>
