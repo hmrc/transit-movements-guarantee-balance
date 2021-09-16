@@ -25,5 +25,9 @@ object MessageType {
   case object ResponseQueryOnGuarantees extends MessageType("IE037", "CD037A", "/xsd/CD037A.xsd")
   case object XmlNack                   extends MessageType("IE917", "CC917A", "/xsd/CC917A.xsd")
   case object FunctionalNack            extends MessageType("IE906", "CD906A", "/xsd/CD906A.xsd")
+
   val values = Set(QueryOnGuarantees, ResponseQueryOnGuarantees, XmlNack, FunctionalNack)
+
+  def withName(name: String): Option[MessageType] =
+    values.find(_.code == name)
 }

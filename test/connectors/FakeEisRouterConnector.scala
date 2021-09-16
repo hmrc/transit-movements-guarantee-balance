@@ -24,9 +24,9 @@ import uk.gov.hmrc.http.UpstreamErrorResponse
 import java.time.Instant
 import scala.xml.Elem
 
-case class FakeNCTSMessageConnector(
+case class FakeEisRouterConnector(
   sendMessageResponse: IO[Either[UpstreamErrorResponse, Unit]] = IO.stub
-) extends NCTSMessageConnector {
+) extends EisRouterConnector {
 
   override def sendMessage(balanceId: BalanceId, requestedAt: Instant, message: Elem)(implicit
     hc: HeaderCarrier

@@ -17,7 +17,7 @@
 package runtime
 
 import cats.effect.IO
-import play.api.Logger
+import org.typelevel.log4cats.Logger
 import retry.RetryDetails
 
 import scala.concurrent.duration.Duration
@@ -40,12 +40,15 @@ object RetryLogging {
       s"Error while ${operation} after ${retries} retries, trying again in ${delay.toMillis}ms"
   }
 
-  def log(operation: String, logger: Logger)(exc: Throwable, details: RetryDetails): IO[Unit] = {
+  def log(
+    operation: String,
+    logger: Logger[IO]
+  )(exc: Throwable, details: RetryDetails): IO[Unit] = {
     val message = retryMessage(operation, details)
 
     if (details.givingUp)
-      IO(logger.error(message, exc))
+      logger.error(exc)(message)
     else
-      IO(logger.warn(message, exc))
+      logger.warn(exc)(message)
   }
 }

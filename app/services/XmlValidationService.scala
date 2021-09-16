@@ -18,10 +18,12 @@ package services
 
 import cats.data.NonEmptyList
 import cats.syntax.all._
+import com.google.inject.ImplementedBy
 import models.MessageType
 import models.SchemaValidationError
 import org.xml.sax.SAXParseException
 
+import javax.inject.Inject
 import javax.inject.Singleton
 import javax.xml.XMLConstants
 import javax.xml.parsers.SAXParser
@@ -29,8 +31,16 @@ import javax.xml.parsers.SAXParserFactory
 import javax.xml.validation.SchemaFactory
 import scala.xml.Elem
 
+@ImplementedBy(classOf[XmlValidationServiceImpl])
+trait XmlValidationService {
+  def validate(
+    messageType: MessageType,
+    xml: String
+  ): Either[NonEmptyList[SchemaValidationError], Elem]
+}
+
 @Singleton
-class XmlValidationService {
+class XmlValidationServiceImpl @Inject() () extends XmlValidationService {
 
   val parsersByType: Map[MessageType, SAXParser] =
     MessageType.values.map { typ =>

@@ -26,19 +26,19 @@ import java.util.UUID
 
 case class BalanceId(value: UUID) extends AnyVal {
 
-  /** The message sender fields of the NCTS Phase 4 spec are limited to 35 characters.
+  /** The message identifier fields of the NCTS Phase 4 spec are limited to 35 characters.
     * This means that we cannot use a full UUID in these fields.
     * This method returns only the initial 12 bytes of the balance ID for this purpose.
     *
-    * @return the first 12 bytes of the UUID as a MessageSender value
+    * @return the first 12 bytes of the UUID as a MessageIdentifier value
     */
-  def messageSender: MessageSender = {
+  def messageIdentifier: MessageIdentifier = {
     val bottom4Mask = 0xffffffffL
     val first4Bytes = (value.getLeastSignificantBits >> 32) & bottom4Mask
     val buffer      = ByteBuffer.wrap(new Array[Byte](12))
     buffer.putLong(value.getMostSignificantBits)
     buffer.putInt(first4Bytes.intValue)
-    MessageSender(buffer.array())
+    MessageIdentifier(buffer.array())
   }
 }
 

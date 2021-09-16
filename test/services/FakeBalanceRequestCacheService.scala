@@ -18,26 +18,38 @@ package services
 
 import cats.effect.IO
 import models.BalanceRequestResponse
+import models.MessageType
 import models.errors.BalanceRequestError
 import models.request.BalanceRequest
 import models.values.EnrolmentId
 import models.values.GuaranteeReference
+import models.values.MessageIdentifier
 import models.values.TaxIdentifier
 import uk.gov.hmrc.http.HeaderCarrier
 
 case class FakeBalanceRequestCacheService(
   getBalanceResponse: IO[Either[BalanceRequestError, BalanceRequestResponse]] = IO.stub,
-  putBalanceResponse: IO[Unit] = IO.unit
+  putBalanceResponse: IO[Unit] = IO.unit,
+  updateBalanceResponse: IO[Either[BalanceRequestError, Unit]] = IO.stub
 ) extends BalanceRequestCacheService {
 
   override def getBalance(enrolmentId: EnrolmentId, balanceRequest: BalanceRequest)(implicit
     hc: HeaderCarrier
-  ): IO[Either[BalanceRequestError, BalanceRequestResponse]] = getBalanceResponse
+  ): IO[Either[BalanceRequestError, BalanceRequestResponse]] =
+    getBalanceResponse
 
   override def putBalance(
     enrolmentId: EnrolmentId,
     taxIdentifier: TaxIdentifier,
     guaranteeReference: GuaranteeReference,
     response: BalanceRequestResponse
-  ): IO[Unit] = putBalanceResponse
+  ): IO[Unit] =
+    putBalanceResponse
+
+  override def updateBalanceRequest(
+    recipient: MessageIdentifier,
+    messageType: MessageType,
+    responseMessage: String
+  ): IO[Either[BalanceRequestError, Unit]] =
+    updateBalanceResponse
 }

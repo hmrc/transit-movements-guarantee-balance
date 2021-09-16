@@ -26,20 +26,24 @@ import com.github.blemale.scaffeine.Scaffeine
 import com.google.inject.ImplementedBy
 import com.kenshoo.play.metrics.Metrics
 import config.AppConfig
+import controllers.ErrorLogging
 import logging.Logging
 import models.BalanceRequestResponse
+import models.MessageType
 import models.PendingBalanceRequest
 import models.errors._
 import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.EnrolmentId
 import models.values.GuaranteeReference
+import models.values.MessageIdentifier
 import models.values.TaxIdentifier
 import uk.gov.hmrc.http.HeaderCarrier
 
 import java.util.concurrent.TimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
+import scala.xml.Elem
 
 @ImplementedBy(classOf[BalanceRequestCacheServiceImpl])
 trait BalanceRequestCacheService {
@@ -54,15 +58,24 @@ trait BalanceRequestCacheService {
     guaranteeReference: GuaranteeReference,
     response: BalanceRequestResponse
   ): IO[Unit]
+
+  def updateBalanceRequest(
+    recipient: MessageIdentifier,
+    messageType: MessageType,
+    responseMessage: String
+  ): IO[Either[BalanceRequestError, Unit]]
 }
 
 @Singleton
 class BalanceRequestCacheServiceImpl @Inject() (
   appConfig: AppConfig,
   metrics: Metrics,
-  service: BalanceRequestService
+  service: BalanceRequestService,
+  validator: XmlValidationService,
+  parser: XmlParsingService
 ) extends BalanceRequestCacheService
-    with Logging {
+    with Logging
+    with ErrorLogging {
 
   type CacheKey         = (EnrolmentId, TaxIdentifier, GuaranteeReference)
   type DeferredResponse = Deferred[IO, BalanceRequestResponse]
@@ -119,7 +132,7 @@ class BalanceRequestCacheServiceImpl @Inject() (
     balanceResponse.value
   }
 
-  def awaitExistingBalanceRequest(
+  private def awaitExistingBalanceRequest(
     enrolmentId: EnrolmentId,
     balanceRequest: BalanceRequest,
     deferred: DeferredResponse
@@ -178,5 +191,44 @@ class BalanceRequestCacheServiceImpl @Inject() (
       deferred <- IO(cache.get(cacheKey))
       _        <- deferred.complete(response)
     } yield ()
+  }
+
+  private def validateResponseMessage(
+    messageType: MessageType,
+    responseMessage: String
+  ): EitherT[IO, BalanceRequestError, Elem] =
+    EitherT
+      .fromEither[IO] {
+        validator.validate(messageType, responseMessage)
+      }
+      .leftMap { errors =>
+        BalanceRequestError.xmlValidationError(messageType, errors)
+      }
+
+  def updateBalanceRequest(
+    recipient: MessageIdentifier,
+    messageType: MessageType,
+    responseMessage: String
+  ): IO[Either[BalanceRequestError, Unit]] = {
+    val updateBalance = for {
+      validated <- validateResponseMessage(messageType, responseMessage)
+
+      response <- EitherT.fromEither[IO] {
+        parser.parseResponseMessage(messageType, validated)
+      }
+
+      maybeUpdated <- EitherT.right[BalanceRequestError] {
+        service.updateBalanceRequest(recipient, response)
+      }
+
+      updated <- EitherT.fromOption[IO](maybeUpdated, BalanceRequestError.notFoundError(recipient))
+
+      _ <- EitherT.right[BalanceRequestError] {
+        putBalance(updated.enrolmentId, updated.taxIdentifier, updated.guaranteeReference, response)
+      }
+
+    } yield ()
+
+    updateBalance.value
   }
 }

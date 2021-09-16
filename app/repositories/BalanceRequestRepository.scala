@@ -19,6 +19,7 @@ package repositories
 import cats.effect.IO
 import com.google.inject.ImplementedBy
 import config.AppConfig
+import logging.Logging
 import models.BalanceRequestResponse
 import models.PendingBalanceRequest
 import models.formats.MongoFormats
@@ -26,7 +27,7 @@ import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.EnrolmentId
 import models.values.GuaranteeReference
-import models.values.MessageSender
+import models.values.MessageIdentifier
 import models.values.TaxIdentifier
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
@@ -41,7 +42,6 @@ import org.mongodb.scala.model.Indexes
 import org.mongodb.scala.model.ReturnDocument
 import org.mongodb.scala.model.Sorts
 import org.mongodb.scala.model.Updates
-import play.api.Logging
 import retry.RetryPolicies
 import retry.syntax.all._
 import runtime.RetryLogging
@@ -75,7 +75,7 @@ trait BalanceRequestRepository {
   ): IO[BalanceId]
 
   def updateBalanceRequest(
-    messageSender: MessageSender,
+    messageIdentifier: MessageIdentifier,
     completedAt: Instant,
     response: BalanceRequestResponse
   ): IO[Option[PendingBalanceRequest]]
@@ -95,8 +95,9 @@ class BalanceRequestRepositoryImpl @Inject() (
       domainFormat = MongoFormats.pendingBalanceRequestFormat,
       indexes = Seq(
         IndexModel(
-          Indexes.ascending("messageSender"),
+          Indexes.ascending("messageIdentifier"),
           IndexOptions()
+            .unique(true)
             .background(false)
         ),
         IndexModel(
@@ -191,13 +192,13 @@ class BalanceRequestRepositoryImpl @Inject() (
   }
 
   def updateBalanceRequest(
-    messageSender: MessageSender,
+    messageIdentifier: MessageIdentifier,
     completedAt: Instant,
     response: BalanceRequestResponse
   ): IO[Option[PendingBalanceRequest]] =
     IO.observeFirstOption {
       collection.findOneAndUpdate(
-        Filters.eq("messageSender", messageSender.value),
+        Filters.eq("messageIdentifier", messageIdentifier.value),
         Updates.combine(
           Updates.set("completedAt", completedAt),
           Updates.set("response", response)

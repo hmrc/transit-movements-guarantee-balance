@@ -26,6 +26,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.http.ContentTypes
 import play.api.http.HeaderNames
+import play.api.http.MimeTypes
 import play.api.test.Helpers._
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse._
@@ -36,7 +37,7 @@ import java.time.ZoneOffset
 import java.util.UUID
 import scala.util.Right
 
-class NCTSMessageConnectorSpec
+class EisRouterConnectorSpec
     extends AsyncFlatSpec
     with Matchers
     with EitherValues
@@ -53,12 +54,12 @@ class NCTSMessageConnectorSpec
   val dateTime    = OffsetDateTime.of(LocalDateTime.of(2021, 9, 3, 18, 6, 20), ZoneOffset.UTC)
   val requestedAt = dateTime.toInstant()
 
-  "NCTSConnector" should "send XML message to downstream component" in {
-    val connector = injector.instanceOf[NCTSMessageConnector]
+  "EisRouterConnector" should "send XML message to downstream component" in {
+    val connector = injector.instanceOf[EisRouterConnector]
 
     wireMockServer.stubFor(
       post(urlEqualTo("/movements/messages"))
-        .withHeader(HeaderNames.ACCEPT, equalTo(ContentTypes.JSON))
+        .withHeader(HeaderNames.ACCEPT, equalTo(MimeTypes.XML))
         .withHeader(HeaderNames.CONTENT_TYPE, equalTo(ContentTypes.XML))
         .withHeader(HeaderNames.DATE, equalTo("Fri, 3 Sep 2021 18:06:20 GMT"))
         .withHeader("Channel", equalTo("api"))
@@ -78,7 +79,7 @@ class NCTSMessageConnectorSpec
   }
 
   it should "return an error response if the downstream component returns a client error" in {
-    val connector = injector.instanceOf[NCTSMessageConnector]
+    val connector = injector.instanceOf[EisRouterConnector]
 
     wireMockServer.stubFor(
       post(urlEqualTo("/movements/messages"))
@@ -97,7 +98,7 @@ class NCTSMessageConnectorSpec
   }
 
   it should "return an error response if the downstream component returns a server error" in {
-    val connector = injector.instanceOf[NCTSMessageConnector]
+    val connector = injector.instanceOf[EisRouterConnector]
 
     wireMockServer.stubFor(
       post(urlEqualTo("/movements/messages"))

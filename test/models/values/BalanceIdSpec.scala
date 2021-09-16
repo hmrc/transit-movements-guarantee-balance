@@ -28,11 +28,11 @@ import java.util.Random
 import java.util.UUID
 
 class BalanceIdSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks {
-  "BalanceId.messageSender" should "extract the first 24 hex characters of the UUID" in forAll {
+  "BalanceId.messageIdentifier" should "extract the first 24 hex characters of the UUID" in forAll {
     uuid: UUID =>
       val uuidHex   = uuid.toString.replaceAll("-", "")
       val balanceId = BalanceId(uuid)
-      balanceId.messageSender.hexString shouldBe uuidHex.take(24)
+      balanceId.messageIdentifier.hexString shouldBe uuidHex.take(24)
   }
 
   "BalanceId.next" should "generate a sequential UUID based upon the system time and a random UUID" in {

@@ -45,8 +45,8 @@ trait MongoFormats
   implicit val balanceIdFormat: Format[BalanceId] =
     Json.valueFormat[BalanceId]
 
-  implicit val messageSenderFormat: Format[MessageSender] =
-    Json.valueFormat[MessageSender]
+  implicit val messageIdentifierFormat: Format[MessageIdentifier] =
+    Json.valueFormat[MessageIdentifier]
 
   def withStatusField[A <: BalanceRequestResponse](format: OWrites[A], status: String): OWrites[A] =
     format.transform { (obj: JsObject) =>
@@ -89,7 +89,7 @@ trait MongoFormats
 
   implicit val pendingBalanceRequestWrites: OWrites[PendingBalanceRequest] =
     OWrites.transform(balanceRequestFormat) { case (request, obj) =>
-      obj ++ Json.obj("messageSender" -> request.balanceId.messageSender)
+      obj ++ Json.obj("messageIdentifier" -> request.balanceId.messageIdentifier)
     }
 
   implicit val pendingBalanceRequestFormat: OFormat[PendingBalanceRequest] =

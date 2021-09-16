@@ -16,16 +16,19 @@
 
 package runtime
 
+import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import ch.qos.logback.classic.Level
-import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.classic.{Logger => LogbackLogger}
 import ch.qos.logback.core.read.ListAppender
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.slf4j.LoggerFactory
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 import play.api.test.DefaultAwaitTimeout
 import play.api.test.FutureAwaits
-import play.api.{Logger => PlayLogger}
 import retry.RetryDetails
 
 import scala.concurrent.duration._
@@ -38,13 +41,14 @@ class RetryLoggingSpec
 
   val operation = "reticulating splines"
 
-  def withLogAppender[A](test: (PlayLogger, ListAppender[ILoggingEvent]) => A) = {
-    val logger        = PlayLogger(suiteName)
+  def withLogAppender[A](test: (Logger[IO], ListAppender[ILoggingEvent]) => A) = {
+    val slf4jLogger   = LoggerFactory.getLogger(suiteName)
     val listAppender  = new ListAppender[ILoggingEvent]()
-    val logbackLogger = logger.underlyingLogger.asInstanceOf[Logger]
+    val logbackLogger = slf4jLogger.asInstanceOf[LogbackLogger]
     listAppender.start()
     logbackLogger.detachAndStopAllAppenders()
     logbackLogger.addAppender(listAppender)
+    val logger = Slf4jLogger.getLoggerFromSlf4j[IO](slf4jLogger)
     try test(logger, listAppender)
     finally logbackLogger.detachAndStopAllAppenders()
   }

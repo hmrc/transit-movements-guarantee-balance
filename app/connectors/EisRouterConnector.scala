@@ -24,6 +24,7 @@ import models.MessageType
 import models.values.BalanceId
 import play.api.http.ContentTypes
 import play.api.http.HeaderNames
+import play.api.http.MimeTypes
 import runtime.IOFutures
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.HttpClient
@@ -38,16 +39,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import scala.xml.Elem
 
-@ImplementedBy(classOf[NCTSMessageConnectorImpl])
-trait NCTSMessageConnector {
+@ImplementedBy(classOf[EisRouterConnectorImpl])
+trait EisRouterConnector {
   def sendMessage(balanceId: BalanceId, requestedAt: Instant, message: Elem)(implicit
     hc: HeaderCarrier
   ): IO[Either[UpstreamErrorResponse, Unit]]
 }
 
 @Singleton
-class NCTSMessageConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient)
-    extends NCTSMessageConnector
+class EisRouterConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient)
+    extends EisRouterConnector
     with IOFutures {
 
   val dateFormatter = DateTimeFormatter.RFC_1123_DATE_TIME
@@ -60,10 +61,10 @@ class NCTSMessageConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient
       val urlString      = appConfig.eisRouterUrl.toString
       val wrappedMessage = <transitRequest>{message}</transitRequest>
       val headers = hc.headers(Seq(Constants.ChannelHeader)) ++ Seq(
-        HeaderNames.ACCEPT       -> ContentTypes.JSON,
+        HeaderNames.ACCEPT       -> MimeTypes.XML,
         HeaderNames.DATE         -> dateFormatter.format(dateTime),
         HeaderNames.CONTENT_TYPE -> ContentTypes.XML,
-        "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageSender.hexString}",
+        "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageIdentifier.hexString}",
         "X-Message-Type"         -> MessageType.QueryOnGuarantees.code
       )
       http.POSTString[Either[UpstreamErrorResponse, Unit]](

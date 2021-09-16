@@ -23,7 +23,7 @@ import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.EnrolmentId
 import models.values.GuaranteeReference
-import models.values.MessageSender
+import models.values.MessageIdentifier
 import models.values.TaxIdentifier
 
 import java.time.Instant
@@ -52,7 +52,7 @@ case class FakeBalanceRequestRepository(
     insertBalanceRequestResponse
 
   override def updateBalanceRequest(
-    messageSender: MessageSender,
+    messageIdentifier: MessageIdentifier,
     completedAt: Instant,
     response: BalanceRequestResponse
   ): IO[Option[PendingBalanceRequest]] =
