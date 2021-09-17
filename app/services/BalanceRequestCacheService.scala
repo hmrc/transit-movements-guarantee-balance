@@ -43,7 +43,6 @@ import uk.gov.hmrc.http.HeaderCarrier
 import java.util.concurrent.TimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
-import scala.xml.Elem
 
 @ImplementedBy(classOf[BalanceRequestCacheServiceImpl])
 trait BalanceRequestCacheService {
@@ -52,6 +51,10 @@ trait BalanceRequestCacheService {
     balanceRequest: BalanceRequest
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]]
 
+  def getBalance(
+    balanceId: BalanceId
+  )(implicit hc: HeaderCarrier): IO[Option[PendingBalanceRequest]]
+
   def putBalance(
     enrolmentId: EnrolmentId,
     taxIdentifier: TaxIdentifier,
@@ -59,7 +62,7 @@ trait BalanceRequestCacheService {
     response: BalanceRequestResponse
   ): IO[Unit]
 
-  def updateBalanceRequest(
+  def updateBalance(
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
@@ -70,9 +73,7 @@ trait BalanceRequestCacheService {
 class BalanceRequestCacheServiceImpl @Inject() (
   appConfig: AppConfig,
   metrics: Metrics,
-  service: BalanceRequestService,
-  validator: XmlValidationService,
-  parser: XmlParsingService
+  service: BalanceRequestService
 ) extends BalanceRequestCacheService
     with Logging
     with ErrorLogging {
@@ -140,19 +141,12 @@ class BalanceRequestCacheServiceImpl @Inject() (
     val getBalanceResponse = for {
       maybeRequest <- getRequest(enrolmentId, balanceRequest)
 
-      balanceId <- maybeRequest
-        .map { request =>
-          EitherT.pure[IO, BalanceRequestError](request.balanceId)
-        }
-        .getOrElse {
-          EitherT
-            .right[BalanceRequestError](
-              logger.error("Unable to fetch database record for a cached balance request")
-            )
-            .flatMap { _ =>
-              EitherT.leftT[IO, BalanceId](BalanceRequestError.internalServiceError())
-            }
-        }
+      balanceId <- EitherT.fromOptionM(
+        IO.pure(maybeRequest.map(_.balanceId)),
+        logger
+          .error("Unable to fetch database record for a cached balance request")
+          .map(_ => BalanceRequestError.internalServiceError())
+      )
 
       response <- awaitResponse(balanceId, deferred)
 
@@ -179,6 +173,11 @@ class BalanceRequestCacheServiceImpl @Inject() (
     }
   }
 
+  def getBalance(
+    balanceId: BalanceId
+  )(implicit hc: HeaderCarrier): IO[Option[PendingBalanceRequest]] =
+    service.getBalanceRequest(balanceId)
+
   def putBalance(
     enrolmentId: EnrolmentId,
     taxIdentifier: TaxIdentifier,
@@ -193,35 +192,22 @@ class BalanceRequestCacheServiceImpl @Inject() (
     } yield ()
   }
 
-  private def validateResponseMessage(
-    messageType: MessageType,
-    responseMessage: String
-  ): EitherT[IO, BalanceRequestError, Elem] =
-    EitherT
-      .fromEither[IO] {
-        validator.validate(messageType, responseMessage)
-      }
-      .leftMap { errors =>
-        BalanceRequestError.xmlValidationError(messageType, errors)
-      }
-
-  def updateBalanceRequest(
+  def updateBalance(
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
   ): IO[Either[BalanceRequestError, Unit]] = {
     val updateBalance = for {
-      validated <- validateResponseMessage(messageType, responseMessage)
-
-      response <- EitherT.fromEither[IO] {
-        parser.parseResponseMessage(messageType, validated)
+      updated <- EitherT {
+        service.updateBalanceRequest(recipient, messageType, responseMessage)
       }
 
-      maybeUpdated <- EitherT.right[BalanceRequestError] {
-        service.updateBalanceRequest(recipient, response)
-      }
-
-      updated <- EitherT.fromOption[IO](maybeUpdated, BalanceRequestError.notFoundError(recipient))
+      response <- EitherT.fromOptionM(
+        IO.pure(updated.response),
+        logger
+          .error("Unable to find balance response data after updating balance request record")
+          .map(_ => BalanceRequestError.internalServiceError())
+      )
 
       _ <- EitherT.right[BalanceRequestError] {
         putBalance(updated.enrolmentId, updated.taxIdentifier, updated.guaranteeReference, response)

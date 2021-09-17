@@ -68,6 +68,11 @@ object BalanceRequestError {
       s"The balance request with message identifier MDTP-GUA-${recipient.hexString} was not found"
     )
 
+  def notFoundError(balanceId: BalanceId): BalanceRequestError =
+    NotFoundError(
+      s"The balance request with ID ${balanceId.value} was not found"
+    )
+
   def badRequestError(message: String): BadRequestError =
     BadRequestError(message)
 
