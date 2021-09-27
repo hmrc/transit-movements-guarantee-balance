@@ -18,25 +18,30 @@ package models.values
 
 import cats.effect.IO
 
-import java.security.SecureRandom
+import java.util.Random
 
-case class UniqueReference(value: Array[Byte]) extends AnyVal {
-  def hexString = {
-    val sb = new StringBuilder
-    for (byte <- value)
-      sb.append(f"${byte}%02x")
-
-    sb.toString
+case class UniqueReference(value: BigInt) extends AnyVal {
+  def base36String: String = {
+    val base36   = value.toString(UniqueReference.Radix)
+    val reversed = base36.reverse
+    val padded   = reversed.padTo(UniqueReference.MaxChars, '0')
+    padded.reverse
   }
 }
 
 object UniqueReference {
-  private val random = new SecureRandom
+  private val Radix    = 36
+  private val MaxChars = 14
+  private val MaxValue = BigInt("z" * MaxChars, Radix)
 
-  def next: IO[UniqueReference] =
-    IO.blocking {
-      val bytes = new Array[Byte](7)
-      random.nextBytes(bytes)
-      UniqueReference(bytes)
+  def next(random: Random): IO[UniqueReference] = {
+    val nextValue = IO.blocking(BigInt(MaxValue.bitLength, random))
+
+    nextValue.flatMap { value =>
+      if (value > MaxValue)
+        next(random)
+      else
+        IO.pure(UniqueReference(value))
     }
+  }
 }

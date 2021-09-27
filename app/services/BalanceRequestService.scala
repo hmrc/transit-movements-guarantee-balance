@@ -37,6 +37,7 @@ import repositories.BalanceRequestRepository
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse._
 
+import java.security.SecureRandom
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
@@ -51,7 +52,8 @@ class BalanceRequestService @Inject() (
   parser: XmlParsingService,
   connector: EisRouterConnector,
   appConfig: AppConfig,
-  clock: Clock
+  clock: Clock,
+  random: SecureRandom
 ) extends Logging {
 
   def submitBalanceRequest(
@@ -63,7 +65,7 @@ class BalanceRequestService @Inject() (
 
       id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
 
-      uniqueRef <- UniqueReference.next
+      uniqueRef <- UniqueReference.next(random)
 
       message = formatter.formatMessage(id, requestedAt, uniqueRef, request)
 
