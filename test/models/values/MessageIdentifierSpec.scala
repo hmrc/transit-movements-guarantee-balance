@@ -23,11 +23,15 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import play.api.mvc.PathBindable
 
+import java.security.SecureRandom
+
 class MessageIdentifierSpec
     extends AnyFlatSpec
     with Matchers
     with EitherValues
     with ScalaCheckPropertyChecks {
+
+  val random = new SecureRandom
 
   val binder = implicitly[PathBindable[MessageIdentifier]]
 
@@ -37,10 +41,22 @@ class MessageIdentifierSpec
     .stringOf(Gen.asciiPrintableChar)
     .suchThat(str => MessageIdentifier.MessageIdRegex.findFirstIn(str).isEmpty)
 
+  val randomBytesGen = Gen.delay {
+    val bytes = new Array[Byte](12)
+    random.nextBytes(bytes)
+    Gen.const(bytes)
+  }
+
   "MessageIdentifier" should "be usable as a path parameter when given valid input" in forAll(
     validIdGen
   ) { id =>
     binder.bind("recipient", id).value.hexString shouldBe id.takeRight(24).toLowerCase
+  }
+
+  it should "round trip via bind and unbind" in forAll(randomBytesGen) { bytes =>
+    val unbound = binder.unbind("recipient", MessageIdentifier(bytes))
+    val bound   = binder.bind("recipient", unbound)
+    bound.value.value shouldBe bytes
   }
 
   it should "return an error when given input missing the message sender prefix" in {

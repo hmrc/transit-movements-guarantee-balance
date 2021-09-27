@@ -43,7 +43,7 @@ case class UpstreamServiceError(
 
 object UpstreamServiceError {
   def causedBy(cause: UpstreamErrorResponse): BalanceRequestError =
-    UpstreamServiceError(cause = cause)
+    BalanceRequestError.upstreamServiceError(cause = cause)
 }
 
 case class InternalServiceError(
@@ -53,7 +53,7 @@ case class InternalServiceError(
 
 object InternalServiceError {
   def causedBy(cause: Throwable): BalanceRequestError =
-    InternalServiceError(cause = Some(cause))
+    BalanceRequestError.internalServiceError(cause = Some(cause))
 }
 
 case class UpstreamTimeoutError(balanceId: BalanceId, message: String = "Gateway timeout")

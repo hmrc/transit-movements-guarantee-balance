@@ -42,7 +42,7 @@ object MessageIdentifier extends Logging {
         for (hexByte <- hexBytes) { buffer.put(Integer.parseInt(hexByte, 16).toByte) }
         MessageIdentifier(buffer.array())
       },
-      _.hexString,
+      id => s"MDTP-GUA-${id.hexString}",
       (key, exc) => {
         logger.warn("Unable to parse message identifier value", exc)
         s"Cannot parse parameter $key as a message identifier value"
