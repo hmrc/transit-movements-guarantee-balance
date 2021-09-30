@@ -24,6 +24,7 @@ import play.api.libs.json.Format
 import play.api.libs.json.Json
 import play.api.libs.json.OFormat
 import play.api.libs.json._
+import uk.gov.hmrc.mongo.play.json.formats.MongoBinaryFormats
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 import uk.gov.hmrc.mongo.play.json.formats.MongoUuidFormats
 import uk.gov.hmrc.play.json.Union
@@ -34,7 +35,7 @@ object MongoFormats extends MongoFormats
 
 trait MongoFormats
   extends CommonFormats
-  with MongoBinaryFormats
+  with MongoBinaryFormats.Implicits
   with MongoJavatimeFormats.Implicits
   with MongoUuidFormats.Implicits {
 
