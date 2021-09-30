@@ -38,11 +38,11 @@ import java.util.UUID
 import scala.util.Right
 
 class EisRouterConnectorSpec
-    extends AsyncFlatSpec
-    with Matchers
-    with EitherValues
-    with Inside
-    with WireMockSpec {
+  extends AsyncFlatSpec
+  with Matchers
+  with EitherValues
+  with Inside
+  with WireMockSpec {
 
   override def portConfigKeys = Seq("microservice.services.eis-router.port")
 

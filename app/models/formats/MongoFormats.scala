@@ -25,6 +25,7 @@ import play.api.libs.json.Json
 import play.api.libs.json.OFormat
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
+import uk.gov.hmrc.mongo.play.json.formats.MongoUuidFormats
 import uk.gov.hmrc.play.json.Union
 
 import java.time.Instant
@@ -32,10 +33,10 @@ import java.time.Instant
 object MongoFormats extends MongoFormats
 
 trait MongoFormats
-    extends CommonFormats
-    with MongoBinaryFormats
-    with MongoUuidFormats
-    with MongoJavatimeFormats.Implicits {
+  extends CommonFormats
+  with MongoBinaryFormats
+  with MongoJavatimeFormats.Implicits
+  with MongoUuidFormats.Implicits {
 
   implicit val functionalErrorFormat: Format[FunctionalError] =
     Json.format[FunctionalError]

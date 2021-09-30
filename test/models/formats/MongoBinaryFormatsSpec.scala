@@ -25,16 +25,17 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import play.api.libs.json._
+import uk.gov.hmrc.mongo.play.json.formats.MongoUuidFormats
 
 import java.io.StringWriter
 import java.util.UUID
 
 class MongoBinaryFormatsSpec
-    extends AnyFlatSpec
-    with Matchers
-    with ScalaCheckPropertyChecks
-    with MongoBinaryFormats
-    with MongoUuidFormats {
+  extends AnyFlatSpec
+  with Matchers
+  with ScalaCheckPropertyChecks
+  with MongoBinaryFormats
+  with MongoUuidFormats.Implicits {
 
   val mongoCodec          = MongoClient.DEFAULT_CODEC_REGISTRY.get(classOf[Array[Byte]])
   val mongoWriterSettings = JsonWriterSettings.builder.outputMode(JsonMode.EXTENDED).build

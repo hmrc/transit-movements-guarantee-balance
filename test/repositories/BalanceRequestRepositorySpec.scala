@@ -46,13 +46,13 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 class BalanceRequestRepositorySpec
-    extends AnyFlatSpec
-    with Matchers
-    with ScalaCheckPropertyChecks
-    with ModelGenerators
-    with FutureAwaits
-    with DefaultAwaitTimeout
-    with DefaultPlayMongoRepositorySupport[PendingBalanceRequest] {
+  extends AnyFlatSpec
+  with Matchers
+  with ScalaCheckPropertyChecks
+  with ModelGenerators
+  with FutureAwaits
+  with DefaultAwaitTimeout
+  with DefaultPlayMongoRepositorySupport[PendingBalanceRequest] {
 
   implicit val ec    = ExecutionContext.global
   override val clock = Clock.tickSeconds(ZoneOffset.UTC)

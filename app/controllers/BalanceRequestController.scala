@@ -52,10 +52,10 @@ class BalanceRequestController @Inject() (
   cc: ControllerComponents,
   val runtime: IORuntime
 ) extends BackendController(cc)
-    with IOActions
-    with HttpFormats
-    with Logging
-    with ErrorLogging {
+  with IOActions
+  with HttpFormats
+  with Logging
+  with ErrorLogging {
 
   private def requireChannelHeader[A](
     result: => IO[Result]

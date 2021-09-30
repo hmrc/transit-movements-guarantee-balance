@@ -28,12 +28,12 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 class IOFuturesSpec
-    extends AnyFlatSpec
-    with Matchers
-    with ScalaCheckPropertyChecks
-    with FutureAwaits
-    with DefaultAwaitTimeout
-    with IOFutures {
+  extends AnyFlatSpec
+  with Matchers
+  with ScalaCheckPropertyChecks
+  with FutureAwaits
+  with DefaultAwaitTimeout
+  with IOFutures {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 

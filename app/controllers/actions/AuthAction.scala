@@ -44,8 +44,8 @@ import scala.concurrent.Future
 class AuthAction @Inject() (val authConnector: AuthConnector, appConfig: AppConfig)(implicit
   ec: ExecutionContext
 ) extends ActionRefiner[Request, AuthenticatedRequest]
-    with AuthorisedFunctions
-    with Logging {
+  with AuthorisedFunctions
+  with Logging {
 
   override protected def executionContext: ExecutionContext = ec
 

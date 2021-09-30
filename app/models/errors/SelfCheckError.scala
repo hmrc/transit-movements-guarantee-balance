@@ -20,8 +20,8 @@ import cats.data.NonEmptyList
 import models.SchemaValidationError
 
 case class SelfCheckError(errors: NonEmptyList[SchemaValidationError])
-    extends RuntimeException(
-      s"""|Errors while validating generated IE034 message:
+  extends RuntimeException(
+    s"""|Errors while validating generated IE034 message:
           |${errors.map(_.format).toList.mkString("\n")}
           |""".trim.stripMargin
-    )
+  )

@@ -75,8 +75,8 @@ class BalanceRequestCacheServiceImpl @Inject() (
   metrics: Metrics,
   service: BalanceRequestService
 ) extends BalanceRequestCacheService
-    with Logging
-    with ErrorLogging {
+  with Logging
+  with ErrorLogging {
 
   type CacheKey         = (EnrolmentId, TaxIdentifier, GuaranteeReference)
   type DeferredResponse = Deferred[IO, BalanceRequestResponse]

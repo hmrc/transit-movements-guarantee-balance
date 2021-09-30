@@ -22,4 +22,4 @@ import play.api.inject.bind
 import java.time.Clock
 
 class SystemClockModule
-    extends SimpleModule((_, _) => Seq(bind[Clock].toInstance(Clock.systemUTC())))
+  extends SimpleModule((_, _) => Seq(bind[Clock].toInstance(Clock.systemUTC())))
