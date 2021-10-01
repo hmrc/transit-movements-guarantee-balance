@@ -30,10 +30,10 @@ import org.scalatest.matchers.should.Matchers
 import java.io.IOException
 
 class IOObservablesSpec
-    extends AsyncFlatSpec
-    with Matchers
-    with IOObservables
-    with BeforeAndAfterAll {
+  extends AsyncFlatSpec
+  with Matchers
+  with IOObservables
+  with BeforeAndAfterAll {
 
   private implicit val system = ActorSystem(suiteName)
 

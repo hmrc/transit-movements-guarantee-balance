@@ -31,9 +31,6 @@ import models.values.MessageIdentifier
 import models.values.TaxIdentifier
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
-import org.bson.codecs.configuration.CodecRegistries
-import org.mongodb.scala.MongoClient
-import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters
 import org.mongodb.scala.model.FindOneAndUpdateOptions
 import org.mongodb.scala.model.IndexModel
@@ -48,7 +45,6 @@ import runtime.RetryLogging
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.MongoUtils
 import uk.gov.hmrc.mongo.play.json.Codecs
-import uk.gov.hmrc.mongo.play.json.CollectionFactory
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import java.security.SecureRandom
@@ -90,47 +86,37 @@ class BalanceRequestRepositoryImpl @Inject() (
 )(implicit
   ec: ExecutionContext
 ) extends PlayMongoRepository[PendingBalanceRequest](
-      mongoComponent = mongoComponent,
-      collectionName = BalanceRequestRepository.collectionName,
-      domainFormat = MongoFormats.pendingBalanceRequestFormat,
-      indexes = Seq(
-        IndexModel(
-          Indexes.ascending("messageIdentifier"),
-          IndexOptions()
-            .unique(true)
-            .background(false)
-        ),
-        IndexModel(
-          Indexes.descending("requestedAt"),
-          IndexOptions()
-            .background(false)
-            .expireAfter(
-              appConfig.mongoBalanceRequestTtl.length,
-              appConfig.mongoBalanceRequestTtl.unit
-            )
-        )
+    mongoComponent = mongoComponent,
+    collectionName = BalanceRequestRepository.collectionName,
+    domainFormat = MongoFormats.pendingBalanceRequestFormat,
+    indexes = Seq(
+      IndexModel(
+        Indexes.ascending("messageIdentifier"),
+        IndexOptions()
+          .unique(true)
+          .background(false)
+      ),
+      IndexModel(
+        Indexes.descending("requestedAt"),
+        IndexOptions()
+          .background(false)
+          .expireAfter(
+            appConfig.mongoBalanceRequestTtl.length,
+            appConfig.mongoBalanceRequestTtl.unit
+          )
       )
+    ),
+    extraCodecs = Seq(
+      new UuidCodec(UuidRepresentation.STANDARD),
+      Codecs.playFormatCodec(MongoFormats.balanceRequestResponseFormat),
+      Codecs.playFormatCodec(MongoFormats.balanceRequestSuccessFormat),
+      Codecs.playFormatCodec(MongoFormats.balanceRequestFunctionalErrorFormat),
+      Codecs.playFormatCodec(MongoFormats.balanceRequestXmlErrorFormat)
     )
-    with BalanceRequestRepository
-    with IOObservables
-    with Logging {
-
-  override lazy val collection: MongoCollection[PendingBalanceRequest] =
-    CollectionFactory
-      .collection(mongoComponent.database, collectionName, domainFormat)
-      .withCodecRegistry(
-        CodecRegistries.fromRegistries(
-          CodecRegistries.fromCodecs(
-            Codecs.playFormatCodec(domainFormat),
-            new UuidCodec(UuidRepresentation.STANDARD),
-            Codecs.playFormatCodec(MongoFormats.balanceRequestResponseFormat),
-            Codecs.playFormatCodec(MongoFormats.balanceRequestSuccessFormat),
-            Codecs.playFormatCodec(MongoFormats.balanceRequestFunctionalErrorFormat),
-            Codecs.playFormatCodec(MongoFormats.balanceRequestXmlErrorFormat)
-          ),
-          MongoClient.DEFAULT_CODEC_REGISTRY
-        )
-      )
+  )
+  with BalanceRequestRepository
+  with IOObservables
+  with Logging {
 
   private def isDuplicateKey(exc: Throwable) = exc match {
     case MongoUtils.DuplicateKey(_) => IO.pure(true)

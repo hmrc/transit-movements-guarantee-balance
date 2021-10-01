@@ -17,8 +17,8 @@
 package models
 
 sealed abstract class MessageType(val code: String, val rootNode: String, val xsdPath: String)
-    extends Product
-    with Serializable
+  extends Product
+  with Serializable
 
 object MessageType {
   case object QueryOnGuarantees         extends MessageType("IE034", "CD034A", "/xsd/CD034A.xsd")

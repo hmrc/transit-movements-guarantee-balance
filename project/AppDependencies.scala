@@ -4,11 +4,11 @@ import sbt._
 
 object AppDependencies {
   val catsVersion       = "2.6.1"
-  val catsEffectVersion = "3.2.1"
-  val catsRetryVersion  = "3.0.0"
+  val catsEffectVersion = "3.2.9"
+  val catsRetryVersion  = "3.1.0"
   val log4catsVersion   = "2.1.1"
-  val bootstrapVersion  = "5.9.0"
-  val hmrcMongoVersion  = "0.52.0"
+  val bootstrapVersion  = "5.14.0"
+  val hmrcMongoVersion  = "0.55.0"
 
   val compile = Seq(
     "uk.gov.hmrc"            %% "bootstrap-backend-play-28" % bootstrapVersion,
@@ -20,19 +20,19 @@ object AppDependencies {
     "org.typelevel"          %% "log4cats-slf4j"            % log4catsVersion,
     "com.github.cb372"       %% "cats-retry"                % catsRetryVersion,
     "com.github.blemale"     %% "scaffeine"                 % "4.1.0",
-    "org.scala-lang.modules" %% "scala-java8-compat"        % "1.0.0",
+    "org.scala-lang.modules" %% "scala-java8-compat"        % "1.0.1",
     "io.dropwizard.metrics"   % "metrics-caffeine"          % "4.2.0",
     compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
   )
 
   val test = Seq(
-    "org.scalatest"         %% "scalatest"                % "3.2.9",
-    "org.scalatestplus"     %% "scalacheck-1-15"          % "3.2.9.0",
+    "org.scalatest"         %% "scalatest"                % "3.2.10",
+    "org.scalatestplus"     %% "scalacheck-1-15"          % "3.2.10.0",
     "uk.gov.hmrc"           %% "bootstrap-test-play-28"   % bootstrapVersion,
     "uk.gov.hmrc.mongo"     %% "hmrc-mongo-test-play-28"  % hmrcMongoVersion,
     "com.typesafe.akka"     %% "akka-testkit"             % PlayVersion.akkaVersion,
-    "com.github.tomakehurst" % "wiremock-jre8-standalone" % "2.30.0",
-    "com.vladsch.flexmark"   % "flexmark-all"             % "0.36.8"
+    "com.github.tomakehurst" % "wiremock-jre8-standalone" % "2.31.0",
+    "com.vladsch.flexmark"   % "flexmark-all"             % "0.62.2"
   ).map(_ % s"$Test, $IntegrationTest")
 
   val dependencySchemes = Seq(

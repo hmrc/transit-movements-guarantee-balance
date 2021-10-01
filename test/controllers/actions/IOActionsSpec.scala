@@ -39,7 +39,7 @@ class IOActionsSpec extends AsyncFlatSpec with Matchers {
     runIOWithRequestResult: Request[AnyContent] => IO[Result] = _ => IO.stub,
     runIOWithJsonParserResult: Request[JsValue] => IO[Result] = _ => IO.stub
   ) extends BackendController(Helpers.stubControllerComponents())
-      with IOActions {
+    with IOActions {
     val runtime = IORuntime.global
 
     def runIO = Action.io { runIOResult }

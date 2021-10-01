@@ -34,10 +34,10 @@ import retry.RetryDetails
 import scala.concurrent.duration._
 
 class RetryLoggingSpec
-    extends AnyFlatSpec
-    with Matchers
-    with FutureAwaits
-    with DefaultAwaitTimeout {
+  extends AnyFlatSpec
+  with Matchers
+  with FutureAwaits
+  with DefaultAwaitTimeout {
 
   val operation = "reticulating splines"
 

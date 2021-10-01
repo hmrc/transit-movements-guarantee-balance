@@ -26,10 +26,10 @@ import play.api.mvc.PathBindable
 import java.security.SecureRandom
 
 class MessageIdentifierSpec
-    extends AnyFlatSpec
-    with Matchers
-    with EitherValues
-    with ScalaCheckPropertyChecks {
+  extends AnyFlatSpec
+  with Matchers
+  with EitherValues
+  with ScalaCheckPropertyChecks {
 
   val random = new SecureRandom
 

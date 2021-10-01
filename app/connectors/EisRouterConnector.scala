@@ -48,8 +48,8 @@ trait EisRouterConnector {
 
 @Singleton
 class EisRouterConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient)
-    extends EisRouterConnector
-    with IOFutures {
+  extends EisRouterConnector
+  with IOFutures {
 
   val dateFormatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
