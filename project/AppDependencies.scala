@@ -31,6 +31,7 @@ object AppDependencies {
     "uk.gov.hmrc"           %% "bootstrap-test-play-28"   % bootstrapVersion,
     "uk.gov.hmrc.mongo"     %% "hmrc-mongo-test-play-28"  % hmrcMongoVersion,
     "com.typesafe.akka"     %% "akka-testkit"             % PlayVersion.akkaVersion,
+    "org.mockito"           %% "mockito-scala"            % "1.16.42",
     "com.github.tomakehurst" % "wiremock-jre8-standalone" % "2.31.0",
     "com.vladsch.flexmark"   % "flexmark-all"             % "0.62.2"
   ).map(_ % s"$Test, $IntegrationTest")

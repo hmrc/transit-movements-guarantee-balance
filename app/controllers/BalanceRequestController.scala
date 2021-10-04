@@ -19,10 +19,13 @@ package controllers
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import cats.syntax.all._
+import com.kenshoo.play.metrics.Metrics
 import config.Constants
 import controllers.actions.AuthActionProvider
 import controllers.actions.IOActions
 import logging.Logging
+import metrics.IOMetrics
+import metrics.MetricsKeys
 import models.BalanceRequestFunctionalError
 import models.BalanceRequestResponse
 import models.BalanceRequestSuccess
@@ -50,12 +53,16 @@ class BalanceRequestController @Inject() (
   authenticate: AuthActionProvider,
   service: BalanceRequestCacheService,
   cc: ControllerComponents,
-  val runtime: IORuntime
+  val runtime: IORuntime,
+  val metrics: Metrics
 ) extends BackendController(cc)
   with IOActions
+  with IOMetrics
   with HttpFormats
   with Logging
   with ErrorLogging {
+
+  import MetricsKeys.Controllers._
 
   private def requireChannelHeader[A](
     result: => IO[Result]
@@ -72,34 +79,57 @@ class BalanceRequestController @Inject() (
 
   def submitBalanceRequest: Action[BalanceRequest] =
     authenticate().io(parse.json[BalanceRequest]) { implicit request =>
-      requireChannelHeader {
+      withMetricsTimerResult(SubmitBalanceRequest) {
+        requireChannelHeader {
+          service
+            .getBalance(request.enrolmentId, request.body)
+            .flatTap(logServiceError("submitting balance request", _))
+            .map {
+              case Right(success @ BalanceRequestSuccess(_, _)) =>
+                Ok(Json.toJson[BalanceRequestResponse](success))
+
+              case Right(functionalError @ BalanceRequestFunctionalError(_)) =>
+                Ok(Json.toJson[BalanceRequestResponse](functionalError))
+
+              case Right(BalanceRequestXmlError(_)) =>
+                InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
+
+              case Left(error @ BadRequestError(_)) =>
+                BadRequest(Json.toJson[BalanceRequestError](error))
+
+              case Left(error @ UpstreamTimeoutError(_, _)) =>
+                Accepted(Json.toJson[BalanceId](error.balanceId))
+
+              case Left(error @ UpstreamServiceError(_, _)) =>
+                InternalServerError(Json.toJson[BalanceRequestError](error))
+
+              case Left(error @ InternalServiceError(_, _)) =>
+                InternalServerError(Json.toJson[BalanceRequestError](error))
+
+              case Left(_) =>
+                InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
+            }
+            .recoverWith { case NonFatal(e) =>
+              logger.error(e)("Unhandled exception thrown").map { _ =>
+                val error     = InternalServiceError.causedBy(e)
+                val errorJson = Json.toJson[BalanceRequestError](error)
+                InternalServerError(errorJson)
+              }
+            }
+        }
+      }
+    }
+
+  def getBalanceRequest(balanceId: BalanceId): Action[AnyContent] =
+    authenticate().io { implicit request =>
+      withMetricsTimerResult(GetBalanceRequest) {
         service
-          .getBalance(request.enrolmentId, request.body)
-          .flatTap(logServiceError("submitting balance request", _))
+          .getBalance(balanceId)
           .map {
-            case Right(success @ BalanceRequestSuccess(_, _)) =>
-              Ok(Json.toJson[BalanceRequestResponse](success))
-
-            case Right(functionalError @ BalanceRequestFunctionalError(_)) =>
-              Ok(Json.toJson[BalanceRequestResponse](functionalError))
-
-            case Right(BalanceRequestXmlError(_)) =>
-              InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
-
-            case Left(error @ BadRequestError(_)) =>
-              BadRequest(Json.toJson[BalanceRequestError](error))
-
-            case Left(error @ UpstreamTimeoutError(_, _)) =>
-              Accepted(Json.toJson[BalanceId](error.balanceId))
-
-            case Left(error @ UpstreamServiceError(_, _)) =>
-              InternalServerError(Json.toJson[BalanceRequestError](error))
-
-            case Left(error @ InternalServiceError(_, _)) =>
-              InternalServerError(Json.toJson[BalanceRequestError](error))
-
-            case Left(_) =>
-              InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
+            case Some(request) =>
+              Ok(Json.toJson(request))
+            case None =>
+              NotFound(Json.toJson(BalanceRequestError.notFoundError(balanceId)))
           }
           .recoverWith { case NonFatal(e) =>
             logger.error(e)("Unhandled exception thrown").map { _ =>
@@ -109,24 +139,5 @@ class BalanceRequestController @Inject() (
             }
           }
       }
-    }
-
-  def getBalanceRequest(balanceId: BalanceId): Action[AnyContent] =
-    authenticate().io { implicit request =>
-      service
-        .getBalance(balanceId)
-        .map {
-          case Some(request) =>
-            Ok(Json.toJson(request))
-          case None =>
-            NotFound(Json.toJson(BalanceRequestError.notFoundError(balanceId)))
-        }
-        .recoverWith { case NonFatal(e) =>
-          logger.error(e)("Unhandled exception thrown").map { _ =>
-            val error     = InternalServiceError.causedBy(e)
-            val errorJson = Json.toJson[BalanceRequestError](error)
-            InternalServerError(errorJson)
-          }
-        }
     }
 }

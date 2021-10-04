@@ -19,9 +19,12 @@ package controllers
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import cats.syntax.all._
+import com.kenshoo.play.metrics.Metrics
 import config.Constants
 import controllers.actions.IOActions
 import logging.Logging
+import metrics.IOMetrics
+import metrics.MetricsKeys
 import models.MessageType
 import models.errors.BadRequestError
 import models.errors.BalanceRequestError
@@ -45,12 +48,16 @@ import scala.util.control.NonFatal
 class BalanceRequestResponseController @Inject() (
   cache: BalanceRequestCacheService,
   cc: ControllerComponents,
-  val runtime: IORuntime
+  val runtime: IORuntime,
+  val metrics: Metrics
 ) extends BackendController(cc)
   with IOActions
+  with IOMetrics
   with HttpFormats
   with Logging
   with ErrorLogging {
+
+  import MetricsKeys.Controllers._
 
   private def requireMessageTypeHeader[A](
     result: MessageType => IO[Result]
@@ -67,29 +74,31 @@ class BalanceRequestResponseController @Inject() (
 
   def updateBalanceRequest(recipient: MessageIdentifier) = Action.io(parse.tolerantText) {
     implicit request =>
-      requireMessageTypeHeader { messageType =>
-        cache
-          .updateBalance(recipient, messageType, request.body)
-          .flatTap(logServiceError("updating balance request", _))
-          .map {
-            case Right(_) =>
-              Ok
-            case Left(error @ BadRequestError(_)) =>
-              BadRequest(Json.toJson[BalanceRequestError](error))
-            case Left(error @ XmlValidationError(_, _)) =>
-              BadRequest(Json.toJson[BalanceRequestError](error))
-            case Left(error @ NotFoundError(_)) =>
-              NotFound(Json.toJson[BalanceRequestError](error))
-            case Left(_) =>
-              InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
-          }
-          .recoverWith { case NonFatal(e) =>
-            logger.error(e)("Unhandled exception thrown").map { _ =>
-              val error     = InternalServiceError.causedBy(e)
-              val errorJson = Json.toJson[BalanceRequestError](error)
-              InternalServerError(errorJson)
+      withMetricsTimerResult(UpdateBalanceRequest) {
+        requireMessageTypeHeader { messageType =>
+          cache
+            .updateBalance(recipient, messageType, request.body)
+            .flatTap(logServiceError("updating balance request", _))
+            .map {
+              case Right(_) =>
+                Ok
+              case Left(error @ BadRequestError(_)) =>
+                BadRequest(Json.toJson[BalanceRequestError](error))
+              case Left(error @ XmlValidationError(_, _)) =>
+                BadRequest(Json.toJson[BalanceRequestError](error))
+              case Left(error @ NotFoundError(_)) =>
+                NotFound(Json.toJson[BalanceRequestError](error))
+              case Left(_) =>
+                InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
             }
-          }
+            .recoverWith { case NonFatal(e) =>
+              logger.error(e)("Unhandled exception thrown").map { _ =>
+                val error     = InternalServiceError.causedBy(e)
+                val errorJson = Json.toJson[BalanceRequestError](error)
+                InternalServerError(errorJson)
+              }
+            }
+        }
       }
   }
 }

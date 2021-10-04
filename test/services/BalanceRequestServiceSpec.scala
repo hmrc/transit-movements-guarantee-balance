@@ -21,6 +21,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import config.AppConfig
 import connectors.FakeEisRouterConnector
+import metrics.FakeMetrics
 import models.BalanceRequestResponse
 import models.BalanceRequestSuccess
 import models.MessageType
@@ -82,7 +83,8 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
       parser,
       FakeEisRouterConnector(sendMessageResponse),
       appConfig,
-      Clock.systemUTC()
+      Clock.systemUTC(),
+      new FakeMetrics
     )
   }
 
