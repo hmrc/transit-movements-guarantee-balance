@@ -20,6 +20,7 @@ import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import config.Constants
+import metrics.FakeMetrics
 import models.MessageType
 import models.SchemaValidationError
 import models.errors.BalanceRequestError
@@ -44,7 +45,8 @@ class BalanceRequestResponseControllerSpec extends AnyFlatSpec with Matchers {
     new BalanceRequestResponseController(
       service,
       Helpers.stubControllerComponents(),
-      IORuntime.global
+      IORuntime.global,
+      new FakeMetrics
     )
   }
 

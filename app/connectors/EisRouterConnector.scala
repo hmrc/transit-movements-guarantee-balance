@@ -18,8 +18,11 @@ package connectors
 
 import cats.effect.IO
 import com.google.inject.ImplementedBy
+import com.kenshoo.play.metrics.Metrics
 import config.AppConfig
 import config.Constants
+import metrics.IOMetrics
+import metrics.MetricsKeys
 import models.MessageType
 import models.values.BalanceId
 import play.api.http.ContentTypes
@@ -47,30 +50,38 @@ trait EisRouterConnector {
 }
 
 @Singleton
-class EisRouterConnectorImpl @Inject() (appConfig: AppConfig, http: HttpClient)
-  extends EisRouterConnector
-  with IOFutures {
+class EisRouterConnectorImpl @Inject() (
+  appConfig: AppConfig,
+  http: HttpClient,
+  val metrics: Metrics
+) extends EisRouterConnector
+  with IOFutures
+  with IOMetrics {
+
+  import MetricsKeys.Connectors._
 
   val dateFormatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
   def sendMessage(balanceId: BalanceId, requestedAt: Instant, message: Elem)(implicit
     hc: HeaderCarrier
   ): IO[Either[UpstreamErrorResponse, Unit]] =
-    IO.runFuture { implicit ec =>
-      val dateTime       = OffsetDateTime.ofInstant(requestedAt, ZoneOffset.UTC)
-      val urlString      = appConfig.eisRouterUrl.toString
-      val wrappedMessage = <transitRequest>{message}</transitRequest>
-      val headers = hc.headers(Seq(Constants.ChannelHeader)) ++ Seq(
-        HeaderNames.ACCEPT       -> MimeTypes.XML,
-        HeaderNames.DATE         -> dateFormatter.format(dateTime),
-        HeaderNames.CONTENT_TYPE -> ContentTypes.XML,
-        "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageIdentifier.hexString}",
-        "X-Message-Type"         -> MessageType.QueryOnGuarantees.code
-      )
-      http.POSTString[Either[UpstreamErrorResponse, Unit]](
-        urlString,
-        wrappedMessage.toString,
-        headers
-      )
+    withMetricsTimerResponse(SendMessage) {
+      IO.runFuture { implicit ec =>
+        val dateTime       = OffsetDateTime.ofInstant(requestedAt, ZoneOffset.UTC)
+        val urlString      = appConfig.eisRouterUrl.toString
+        val wrappedMessage = <transitRequest>{message}</transitRequest>
+        val headers = hc.headers(Seq(Constants.ChannelHeader)) ++ Seq(
+          HeaderNames.ACCEPT       -> MimeTypes.XML,
+          HeaderNames.DATE         -> dateFormatter.format(dateTime),
+          HeaderNames.CONTENT_TYPE -> ContentTypes.XML,
+          "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageIdentifier.hexString}",
+          "X-Message-Type"         -> MessageType.QueryOnGuarantees.code
+        )
+        http.POSTString[Either[UpstreamErrorResponse, Unit]](
+          urlString,
+          wrappedMessage.toString,
+          headers
+        )
+      }
     }
 }

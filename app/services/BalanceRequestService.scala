@@ -19,9 +19,11 @@ package services
 import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.all._
+import com.kenshoo.play.metrics.Metrics
 import config.AppConfig
 import connectors.EisRouterConnector
 import logging.Logging
+import metrics.MetricsKeys.ResponseTime
 import models.BalanceRequestResponse
 import models.MessageType
 import models.PendingBalanceRequest
@@ -38,6 +40,7 @@ import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse._
 
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -51,8 +54,11 @@ class BalanceRequestService @Inject() (
   parser: XmlParsingService,
   connector: EisRouterConnector,
   appConfig: AppConfig,
-  clock: Clock
+  clock: Clock,
+  metrics: Metrics
 ) extends Logging {
+
+  private val responseTimer = metrics.defaultRegistry.timer(ResponseTime)
 
   def submitBalanceRequest(
     enrolmentId: EnrolmentId,
@@ -135,6 +141,16 @@ class BalanceRequestService @Inject() (
       BalanceRequestError.notFoundError(recipient)
     )
 
+  def recordResponseTime(
+    request: PendingBalanceRequest,
+    completedAt: Instant
+  ): EitherT[IO, BalanceRequestError, Unit] =
+    EitherT.liftF(IO {
+      val requestedAt  = request.requestedAt
+      val responseTime = Duration.between(requestedAt, completedAt)
+      responseTimer.update(responseTime)
+    })
+
   def updateBalanceRequest(
     recipient: MessageIdentifier,
     messageType: MessageType,
@@ -148,6 +164,9 @@ class BalanceRequestService @Inject() (
       completedAt <- EitherT.liftF(IO(clock.instant()))
 
       updated <- updateBalanceRequestRecord(recipient, completedAt, response)
+
+      _ <- recordResponseTime(updated, completedAt)
+
     } yield updated
 
     updateBalance.value

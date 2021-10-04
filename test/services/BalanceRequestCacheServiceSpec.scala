@@ -84,7 +84,8 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       parser,
       FakeEisRouterConnector(sendMessageResponse),
       appConfig,
-      Clock.systemUTC()
+      Clock.systemUTC(),
+      new FakeMetrics
     )
 
     new BalanceRequestCacheServiceImpl(
