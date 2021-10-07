@@ -31,9 +31,7 @@ import models.errors._
 import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.EnrolmentId
-import models.values.GuaranteeReference
 import models.values.MessageIdentifier
-import models.values.TaxIdentifier
 import models.values.UniqueReference
 import repositories.BalanceRequestRepository
 import uk.gov.hmrc.http.HeaderCarrier
@@ -103,13 +101,6 @@ class BalanceRequestService @Inject() (
     balanceId: BalanceId
   ): IO[Option[PendingBalanceRequest]] =
     repository.getBalanceRequest(balanceId)
-
-  def getBalanceRequest(
-    enrolmentId: EnrolmentId,
-    taxIdentifier: TaxIdentifier,
-    guaranteeReference: GuaranteeReference
-  ): IO[Option[PendingBalanceRequest]] =
-    repository.getBalanceRequest(enrolmentId, taxIdentifier, guaranteeReference)
 
   private def validateResponseMessage(
     messageType: MessageType,

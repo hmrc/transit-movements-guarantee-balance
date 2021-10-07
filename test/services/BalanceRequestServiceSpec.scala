@@ -240,31 +240,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
       .unsafeToFuture()
   }
 
-  "BalanceRequestService.getBalanceRequest" should "return balance request for provided identifiers when found" in {
-    service(
-      getBalanceRequestResponse = IO.pure(Some(pendingBalanceRequest))
-    ).getBalanceRequest(
-      enrolmentId,
-      balanceRequest.taxIdentifier,
-      balanceRequest.guaranteeReference
-    ).map {
-      _ shouldBe Some(pendingBalanceRequest)
-    }.unsafeToFuture()
-  }
-
-  it should "return None for provided identifiers when the balance request is not found" in {
-    service(
-      getBalanceRequestResponse = IO.pure(None)
-    ).getBalanceRequest(
-      enrolmentId,
-      balanceRequest.taxIdentifier,
-      balanceRequest.guaranteeReference
-    ).map {
-      _ shouldBe None
-    }.unsafeToFuture()
-  }
-
-  "BalanceRequestService.getBalanceRequest by ID" should "delegate to repository" in {
+  "BalanceRequestService.getBalanceRequest" should "delegate to repository" in {
     val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
     val balanceId   = BalanceId(uuid)
     val enrolmentId = EnrolmentId("12345678ABC")

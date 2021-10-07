@@ -96,62 +96,6 @@ class BalanceRequestRepositorySpec
       await(assertion.unsafeToFuture())
   }
 
-  it should "round trip pending balance requests by identifiers" in forAll {
-    (enrolmentId: EnrolmentId, request: BalanceRequest, requestedAt: Instant) =>
-      val assertion = for {
-        id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
-
-        expected = PendingBalanceRequest(
-          balanceId = id,
-          enrolmentId = enrolmentId,
-          taxIdentifier = request.taxIdentifier,
-          guaranteeReference = request.guaranteeReference,
-          requestedAt = requestedAt,
-          completedAt = None,
-          response = None
-        )
-
-        actual <- repository.getBalanceRequest(
-          enrolmentId,
-          request.taxIdentifier,
-          request.guaranteeReference
-        )
-
-      } yield actual should contain(expected)
-
-      await(assertion.unsafeToFuture())
-  }
-
-  it should "return latest request when searching by identifiers" in forAll {
-    (enrolmentId: EnrolmentId, request: BalanceRequest, requestedAt: Instant) =>
-      val assertion = for {
-        _ <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
-
-        _ <- repository.insertBalanceRequest(enrolmentId, request, requestedAt.plusSeconds(60))
-
-        id3 <- repository.insertBalanceRequest(enrolmentId, request, requestedAt.plusSeconds(120))
-
-        expected = PendingBalanceRequest(
-          balanceId = id3,
-          enrolmentId = enrolmentId,
-          taxIdentifier = request.taxIdentifier,
-          guaranteeReference = request.guaranteeReference,
-          requestedAt = requestedAt.plusSeconds(120),
-          completedAt = None,
-          response = None
-        )
-
-        actual <- repository.getBalanceRequest(
-          enrolmentId,
-          request.taxIdentifier,
-          request.guaranteeReference
-        )
-
-      } yield actual should contain(expected)
-
-      await(assertion.unsafeToFuture())
-  }
-
   it should "update balance requests with responses" in forAll {
     (
       enrolmentId: EnrolmentId,
