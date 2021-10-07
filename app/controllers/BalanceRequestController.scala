@@ -21,7 +21,6 @@ import cats.effect.unsafe.IORuntime
 import cats.syntax.all._
 import com.kenshoo.play.metrics.Metrics
 import config.Constants
-import controllers.actions.AuthActionProvider
 import controllers.actions.IOActions
 import logging.Logging
 import metrics.IOMetrics
@@ -50,7 +49,6 @@ import scala.util.control.NonFatal
 
 @Singleton
 class BalanceRequestController @Inject() (
-  authenticate: AuthActionProvider,
   service: BalanceRequestCacheService,
   cc: ControllerComponents,
   val runtime: IORuntime,
@@ -78,7 +76,7 @@ class BalanceRequestController @Inject() (
       }
 
   def submitBalanceRequest: Action[BalanceRequest] =
-    authenticate().io(parse.json[BalanceRequest]) { implicit request =>
+    Action.io(parse.json[BalanceRequest]) { implicit request =>
       withMetricsTimerResult(SubmitBalanceRequest) {
         requireChannelHeader {
           service
@@ -121,7 +119,7 @@ class BalanceRequestController @Inject() (
     }
 
   def getBalanceRequest(balanceId: BalanceId): Action[AnyContent] =
-    authenticate().io { implicit request =>
+    Action.io { implicit request =>
       withMetricsTimerResult(GetBalanceRequest) {
         service
           .getBalance(balanceId)
