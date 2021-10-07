@@ -17,6 +17,7 @@
 package connectors
 
 import com.github.tomakehurst.wiremock.WireMockServer
+import com.github.tomakehurst.wiremock.common.ConsoleNotifier
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.BeforeAndAfterEach
@@ -32,8 +33,11 @@ trait WireMockSpec
   with BeforeAndAfterAll
   with GuiceFakeApplicationFactory { suite: Suite =>
 
-  protected val wireMockConfig = WireMockConfiguration.wireMockConfig()
-  protected val wireMockServer = new WireMockServer(wireMockConfig.dynamicPort())
+  protected val wireMockConfig =
+    WireMockConfiguration.wireMockConfig().notifier(new ConsoleNotifier(false))
+
+  protected val wireMockServer =
+    new WireMockServer(wireMockConfig.dynamicPort())
 
   protected def portConfigKeys: Seq[String]
 

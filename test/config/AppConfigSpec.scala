@@ -44,18 +44,6 @@ class AppConfigSpec extends AnyFlatSpec with Matchers {
     appConfig.eisRouterUrl shouldBe AbsoluteUrl.parse("https://foo:101010/bar/baz/quu")
   }
 
-  it should "deserialize enrolment config" in {
-    val appConfig = mkAppConfig(
-      Configuration(
-        "auth.enrolmentKey"        -> "HMRC-TEST-ORG",
-        "auth.enrolmentIdentifier" -> "FooBarIdentifier"
-      )
-    )
-
-    appConfig.enrolmentKey shouldBe "HMRC-TEST-ORG"
-    appConfig.enrolmentIdentifier shouldBe "FooBarIdentifier"
-  }
-
   it should "deserialize balance-request-cache TTL config" in {
     val appConfig = mkAppConfig(Configuration("balance-request-cache.ttl" -> "60 seconds"))
     appConfig.balanceRequestCacheTtl shouldBe 60.seconds

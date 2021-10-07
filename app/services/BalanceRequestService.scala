@@ -30,7 +30,6 @@ import models.PendingBalanceRequest
 import models.errors._
 import models.request.BalanceRequest
 import models.values.BalanceId
-import models.values.EnrolmentId
 import models.values.MessageIdentifier
 import models.values.UniqueReference
 import repositories.BalanceRequestRepository
@@ -59,13 +58,12 @@ class BalanceRequestService @Inject() (
   private val responseTimer = metrics.defaultRegistry.timer(ResponseTime)
 
   def submitBalanceRequest(
-    enrolmentId: EnrolmentId,
     request: BalanceRequest
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceId]] =
     for {
       requestedAt <- IO(clock.instant())
 
-      id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
+      id <- repository.insertBalanceRequest(request, requestedAt)
 
       uniqueRef <- UniqueReference.next
 

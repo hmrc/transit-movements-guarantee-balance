@@ -49,9 +49,6 @@ trait ModelGenerators {
     Gen.stringOfN(len, Gen.alphaNumChar).map(f)
   }
 
-  implicit val arbEnrolmentId: Arbitrary[EnrolmentId] =
-    arbStringValueClass(11, EnrolmentId.apply)
-
   implicit val arbTaxIdentifier: Arbitrary[TaxIdentifier] =
     arbStringValueClass(13, TaxIdentifier.apply)
 
@@ -78,13 +75,11 @@ trait ModelGenerators {
     Arbitrary {
       for {
         balanceId          <- arbitrary[UUID].map(BalanceId.apply)
-        enrolmentId        <- arbitrary[EnrolmentId]
         taxIdentifier      <- arbitrary[TaxIdentifier]
         guaranteeReference <- arbitrary[GuaranteeReference]
         requestedAt        <- arbitrary[Instant]
       } yield PendingBalanceRequest(
         balanceId,
-        enrolmentId,
         taxIdentifier,
         guaranteeReference,
         requestedAt,

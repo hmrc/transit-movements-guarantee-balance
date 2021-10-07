@@ -88,9 +88,8 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     )
   }
 
-  val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-  val balanceId   = BalanceId(uuid)
-  val enrolmentId = EnrolmentId("12345678ABC")
+  val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+  val balanceId = BalanceId(uuid)
 
   val balanceRequest = BalanceRequest(
     TaxIdentifier("GB12345678900"),
@@ -100,7 +99,6 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
 
   val pendingBalanceRequest = PendingBalanceRequest(
     balanceId,
-    enrolmentId,
     balanceRequest.taxIdentifier,
     balanceRequest.guaranteeReference,
     Instant.now,
@@ -112,7 +110,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     service(
       insertBalanceRequestResponse = IO.pure(balanceId),
       sendMessageResponse = IO.unit.map(Right.apply)
-    ).submitBalanceRequest(enrolmentId, balanceRequest)
+    ).submitBalanceRequest(balanceRequest)
       .map {
         _ shouldBe Right(balanceId)
       }
@@ -125,7 +123,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     service(
       insertBalanceRequestResponse = IO.pure(balanceId),
       sendMessageResponse = IO.pure(Left(error))
-    ).submitBalanceRequest(enrolmentId, balanceRequest)
+    ).submitBalanceRequest(balanceRequest)
       .map {
         _ shouldBe Left(InternalServiceError.causedBy(error))
       }
@@ -138,7 +136,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     service(
       insertBalanceRequestResponse = IO.pure(balanceId),
       sendMessageResponse = IO.pure(Left(error))
-    ).submitBalanceRequest(enrolmentId, balanceRequest)
+    ).submitBalanceRequest(balanceRequest)
       .map {
         _ shouldBe Left(UpstreamServiceError.causedBy(error))
       }
@@ -148,7 +146,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
   it should "propagate database exceptions to the caller" in {
     recoverToSucceededIf[RuntimeException] {
       service(insertBalanceRequestResponse = IO.raiseError(new RuntimeException))
-        .submitBalanceRequest(enrolmentId, balanceRequest)
+        .submitBalanceRequest(balanceRequest)
         .unsafeToFuture()
     }
   }
@@ -201,7 +199,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
         sendMessageResponse = IO.unit.map(Right.apply),
         appConfig = selfCheckConfig,
         formatter = badXmlFormatter
-      ).submitBalanceRequest(enrolmentId, balanceRequest)
+      ).submitBalanceRequest(balanceRequest)
         .unsafeToFuture()
     }.map {
       _.getMessage shouldBe
@@ -233,7 +231,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
       sendMessageResponse = IO.unit.map(Right.apply),
       appConfig = selfCheckDisabledConfig,
       formatter = badXmlFormatter
-    ).submitBalanceRequest(enrolmentId, balanceRequest)
+    ).submitBalanceRequest(balanceRequest)
       .map {
         _ shouldBe Right(balanceId)
       }
@@ -241,13 +239,11 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
   }
 
   "BalanceRequestService.getBalanceRequest" should "delegate to repository" in {
-    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId   = BalanceId(uuid)
-    val enrolmentId = EnrolmentId("12345678ABC")
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
 
     val pendingBalanceRequest = PendingBalanceRequest(
       balanceId,
-      enrolmentId,
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       Instant.now.minusSeconds(5),
@@ -265,16 +261,14 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
   }
 
   "BalanceService.updateBalanceRequest" should "return updated balance request when everything is successful" in {
-    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId   = BalanceId(uuid)
-    val enrolmentId = EnrolmentId("12345678ABC")
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
 
     val balanceRequestSuccess =
       BalanceRequestSuccess(BigDecimal("1212211848.45"), CurrencyCode("GBP"))
 
     val updatedBalanceRequest = PendingBalanceRequest(
       balanceId,
-      enrolmentId,
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("21GB3300BE0001067A001017"),
       Instant.now.minusSeconds(5),

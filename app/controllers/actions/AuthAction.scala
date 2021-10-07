@@ -16,9 +16,7 @@
 
 package controllers.actions
 
-import config.AppConfig
 import models.request.AuthenticatedRequest
-import models.values.EnrolmentId
 import models.values.InternalId
 import play.api.Logging
 import play.api.mvc.ActionRefiner
@@ -30,18 +28,14 @@ import uk.gov.hmrc.auth.core.AuthProvider
 import uk.gov.hmrc.auth.core.AuthProviders
 import uk.gov.hmrc.auth.core.AuthorisationException
 import uk.gov.hmrc.auth.core.AuthorisedFunctions
-import uk.gov.hmrc.auth.core.Enrolment
-import uk.gov.hmrc.auth.core.InsufficientEnrolments
-import uk.gov.hmrc.auth.core.UnsupportedAuthProvider
 import uk.gov.hmrc.auth.core.retrieve.v2.Retrievals
-import uk.gov.hmrc.auth.core.retrieve.~
 import uk.gov.hmrc.play.http.HeaderCarrierConverter
 
 import javax.inject.Inject
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
-class AuthAction @Inject() (val authConnector: AuthConnector, appConfig: AppConfig)(implicit
+class AuthAction @Inject() (val authConnector: AuthConnector)(implicit
   ec: ExecutionContext
 ) extends ActionRefiner[Request, AuthenticatedRequest]
   with AuthorisedFunctions
@@ -54,39 +48,16 @@ class AuthAction @Inject() (val authConnector: AuthConnector, appConfig: AppConf
   ): Future[Either[Result, AuthenticatedRequest[A]]] = {
     implicit val hc = HeaderCarrierConverter.fromRequest(request)
 
-    authorised(Enrolment(appConfig.enrolmentKey) and AuthProviders(AuthProvider.GovernmentGateway))
-      .retrieve(Retrievals.internalId and Retrievals.authorisedEnrolments) {
-        case Some(internalId) ~ enrolments =>
-          val enrolmentIdentifier = for {
-            enrolment  <- enrolments.getEnrolment(appConfig.enrolmentKey)
-            identifier <- enrolment.getIdentifier(appConfig.enrolmentIdentifier)
-          } yield identifier.value
-
-          enrolmentIdentifier
-            .map { enrolmentId =>
-              Future.successful(
-                Right(
-                  AuthenticatedRequest(request, InternalId(internalId), EnrolmentId(enrolmentId))
-                )
-              )
-            }
-            .getOrElse {
-              Future.failed(
-                InsufficientEnrolments(
-                  s"Unable to retrieve ${appConfig.enrolmentIdentifier} for enrolment ${appConfig.enrolmentKey}"
-                )
-              )
-            }
-        case _ =>
-          Future.failed(UnsupportedAuthProvider())
+    authorised(AuthProviders(AuthProvider.GovernmentGateway))
+      .retrieve(Retrievals.internalId) {
+        case Some(internalId) =>
+          Future.successful(Right(AuthenticatedRequest(request, InternalId(internalId))))
+        case None =>
+          Future.successful(Left(Forbidden))
       }
-      .recover {
-        case e: InsufficientEnrolments =>
-          logger.warn(s"Failed to authorise due to insufficient enrolments", e)
-          Left(Forbidden)
-        case e: AuthorisationException =>
-          logger.warn(s"Failed to authorise", e)
-          Left(Unauthorized)
+      .recover { case e: AuthorisationException =>
+        logger.warn(s"Failed to authorise", e)
+        Left(Unauthorized)
       }
   }
 }
