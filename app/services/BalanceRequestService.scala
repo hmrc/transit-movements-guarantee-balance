@@ -30,10 +30,7 @@ import models.PendingBalanceRequest
 import models.errors._
 import models.request.BalanceRequest
 import models.values.BalanceId
-import models.values.EnrolmentId
-import models.values.GuaranteeReference
 import models.values.MessageIdentifier
-import models.values.TaxIdentifier
 import models.values.UniqueReference
 import repositories.BalanceRequestRepository
 import uk.gov.hmrc.http.HeaderCarrier
@@ -61,13 +58,12 @@ class BalanceRequestService @Inject() (
   private val responseTimer = metrics.defaultRegistry.timer(ResponseTime)
 
   def submitBalanceRequest(
-    enrolmentId: EnrolmentId,
     request: BalanceRequest
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceId]] =
     for {
       requestedAt <- IO(clock.instant())
 
-      id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
+      id <- repository.insertBalanceRequest(request, requestedAt)
 
       uniqueRef <- UniqueReference.next
 
@@ -103,13 +99,6 @@ class BalanceRequestService @Inject() (
     balanceId: BalanceId
   ): IO[Option[PendingBalanceRequest]] =
     repository.getBalanceRequest(balanceId)
-
-  def getBalanceRequest(
-    enrolmentId: EnrolmentId,
-    taxIdentifier: TaxIdentifier,
-    guaranteeReference: GuaranteeReference
-  ): IO[Option[PendingBalanceRequest]] =
-    repository.getBalanceRequest(enrolmentId, taxIdentifier, guaranteeReference)
 
   private def validateResponseMessage(
     messageType: MessageType,
@@ -163,11 +152,11 @@ class BalanceRequestService @Inject() (
 
       completedAt <- EitherT.liftF(IO(clock.instant()))
 
-      updated <- updateBalanceRequestRecord(recipient, completedAt, response)
+      updatedRequest <- updateBalanceRequestRecord(recipient, completedAt, response)
 
-      _ <- recordResponseTime(updated, completedAt)
+      _ <- recordResponseTime(updatedRequest, completedAt)
 
-    } yield updated
+    } yield updatedRequest
 
     updateBalance.value
   }

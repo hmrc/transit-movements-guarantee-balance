@@ -25,7 +25,6 @@ import models.PendingBalanceRequest
 import models.request.BalanceRequest
 import models.values.AccessCode
 import models.values.BalanceId
-import models.values.EnrolmentId
 import models.values.GuaranteeReference
 import models.values.TaxIdentifier
 import org.scalatest.flatspec.AnyFlatSpec
@@ -75,13 +74,12 @@ class BalanceRequestRepositorySpec
   }
 
   it should "round trip pending balance requests" in forAll {
-    (enrolmentId: EnrolmentId, request: BalanceRequest, requestedAt: Instant) =>
+    (request: BalanceRequest, requestedAt: Instant) =>
       val assertion = for {
-        id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
+        id <- repository.insertBalanceRequest(request, requestedAt)
 
         expected = PendingBalanceRequest(
           balanceId = id,
-          enrolmentId = enrolmentId,
           taxIdentifier = request.taxIdentifier,
           guaranteeReference = request.guaranteeReference,
           requestedAt = requestedAt,
@@ -96,77 +94,19 @@ class BalanceRequestRepositorySpec
       await(assertion.unsafeToFuture())
   }
 
-  it should "round trip pending balance requests by identifiers" in forAll {
-    (enrolmentId: EnrolmentId, request: BalanceRequest, requestedAt: Instant) =>
-      val assertion = for {
-        id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
-
-        expected = PendingBalanceRequest(
-          balanceId = id,
-          enrolmentId = enrolmentId,
-          taxIdentifier = request.taxIdentifier,
-          guaranteeReference = request.guaranteeReference,
-          requestedAt = requestedAt,
-          completedAt = None,
-          response = None
-        )
-
-        actual <- repository.getBalanceRequest(
-          enrolmentId,
-          request.taxIdentifier,
-          request.guaranteeReference
-        )
-
-      } yield actual should contain(expected)
-
-      await(assertion.unsafeToFuture())
-  }
-
-  it should "return latest request when searching by identifiers" in forAll {
-    (enrolmentId: EnrolmentId, request: BalanceRequest, requestedAt: Instant) =>
-      val assertion = for {
-        _ <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
-
-        _ <- repository.insertBalanceRequest(enrolmentId, request, requestedAt.plusSeconds(60))
-
-        id3 <- repository.insertBalanceRequest(enrolmentId, request, requestedAt.plusSeconds(120))
-
-        expected = PendingBalanceRequest(
-          balanceId = id3,
-          enrolmentId = enrolmentId,
-          taxIdentifier = request.taxIdentifier,
-          guaranteeReference = request.guaranteeReference,
-          requestedAt = requestedAt.plusSeconds(120),
-          completedAt = None,
-          response = None
-        )
-
-        actual <- repository.getBalanceRequest(
-          enrolmentId,
-          request.taxIdentifier,
-          request.guaranteeReference
-        )
-
-      } yield actual should contain(expected)
-
-      await(assertion.unsafeToFuture())
-  }
-
   it should "update balance requests with responses" in forAll {
     (
-      enrolmentId: EnrolmentId,
       request: BalanceRequest,
       requestedAt: Instant,
       response: BalanceRequestResponse
     ) =>
       val assertion = for {
-        id <- repository.insertBalanceRequest(enrolmentId, request, requestedAt)
+        id <- repository.insertBalanceRequest(request, requestedAt)
 
         completedAt = clock.instant().`with`(ChronoField.NANO_OF_SECOND, 0)
 
         expected = PendingBalanceRequest(
           balanceId = id,
-          enrolmentId = enrolmentId,
           taxIdentifier = request.taxIdentifier,
           guaranteeReference = request.guaranteeReference,
           requestedAt = requestedAt,
@@ -189,7 +129,6 @@ class BalanceRequestRepositorySpec
   }
 
   it should "handle concurrent calls without producing duplicate IDs" in {
-    val enrolmentId = EnrolmentId("12345678ABC")
     val balanceRequest = BalanceRequest(
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
@@ -200,7 +139,7 @@ class BalanceRequestRepositorySpec
 
     val requests =
       for (_ <- 1 to 100)
-        yield repository.insertBalanceRequest(enrolmentId, balanceRequest, now).unsafeToFuture()
+        yield repository.insertBalanceRequest(balanceRequest, now).unsafeToFuture()
 
     val results      = Future.sequence(requests).futureValue
     val original     = results.toList.sortBy(_.value)

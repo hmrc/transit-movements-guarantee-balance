@@ -23,10 +23,7 @@ import models.PendingBalanceRequest
 import models.errors.BalanceRequestError
 import models.request.BalanceRequest
 import models.values.BalanceId
-import models.values.EnrolmentId
-import models.values.GuaranteeReference
 import models.values.MessageIdentifier
-import models.values.TaxIdentifier
 import uk.gov.hmrc.http.HeaderCarrier
 
 case class FakeBalanceRequestCacheService(
@@ -41,15 +38,13 @@ case class FakeBalanceRequestCacheService(
   ): IO[Option[PendingBalanceRequest]] =
     getBalanceByIdResponse
 
-  override def getBalance(enrolmentId: EnrolmentId, balanceRequest: BalanceRequest)(implicit
+  override def submitBalanceRequest(balanceRequest: BalanceRequest)(implicit
     hc: HeaderCarrier
   ): IO[Either[BalanceRequestError, BalanceRequestResponse]] =
     getBalanceResponse
 
   override def putBalance(
-    enrolmentId: EnrolmentId,
-    taxIdentifier: TaxIdentifier,
-    guaranteeReference: GuaranteeReference,
+    balanceId: BalanceId,
     response: BalanceRequestResponse
   ): IO[Unit] =
     putBalanceResponse

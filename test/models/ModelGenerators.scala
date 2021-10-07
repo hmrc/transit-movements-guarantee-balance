@@ -78,13 +78,11 @@ trait ModelGenerators {
     Arbitrary {
       for {
         balanceId          <- arbitrary[UUID].map(BalanceId.apply)
-        enrolmentId        <- arbitrary[EnrolmentId]
         taxIdentifier      <- arbitrary[TaxIdentifier]
         guaranteeReference <- arbitrary[GuaranteeReference]
         requestedAt        <- arbitrary[Instant]
       } yield PendingBalanceRequest(
         balanceId,
-        enrolmentId,
         taxIdentifier,
         guaranteeReference,
         requestedAt,

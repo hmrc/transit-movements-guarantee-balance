@@ -21,10 +21,7 @@ import models.BalanceRequestResponse
 import models.PendingBalanceRequest
 import models.request.BalanceRequest
 import models.values.BalanceId
-import models.values.EnrolmentId
-import models.values.GuaranteeReference
 import models.values.MessageIdentifier
-import models.values.TaxIdentifier
 
 import java.time.Instant
 
@@ -37,15 +34,7 @@ case class FakeBalanceRequestRepository(
   override def getBalanceRequest(balanceId: BalanceId): IO[Option[PendingBalanceRequest]] =
     getBalanceRequestResponse
 
-  override def getBalanceRequest(
-    enrolmentId: EnrolmentId,
-    taxIdentifier: TaxIdentifier,
-    guaranteeReference: GuaranteeReference
-  ): IO[Option[PendingBalanceRequest]] =
-    getBalanceRequestResponse
-
   override def insertBalanceRequest(
-    enrolmentId: EnrolmentId,
     balanceRequest: BalanceRequest,
     requestedAt: Instant
   ): IO[BalanceId] =
