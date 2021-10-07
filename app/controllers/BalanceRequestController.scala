@@ -82,7 +82,7 @@ class BalanceRequestController @Inject() (
       withMetricsTimerResult(SubmitBalanceRequest) {
         requireChannelHeader {
           service
-            .getBalance(request.enrolmentId, request.body)
+            .submitBalanceRequest(request.enrolmentId, request.body)
             .flatTap(logServiceError("submitting balance request", _))
             .map {
               case Right(success @ BalanceRequestSuccess(_, _)) =>
