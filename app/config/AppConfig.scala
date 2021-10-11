@@ -46,4 +46,7 @@ class AppConfig @Inject() (config: Configuration, servicesConfig: ServicesConfig
   lazy val features = config.getOptional[Map[String, Boolean]]("features").getOrElse(Map.empty)
 
   lazy val selfCheck = features.get("self-check").getOrElse(false)
+
+  lazy val eisRouterCircuitBreakerConfig =
+    CircuitBreakerConfig.fromServicesConfig("eis-router", config)
 }
