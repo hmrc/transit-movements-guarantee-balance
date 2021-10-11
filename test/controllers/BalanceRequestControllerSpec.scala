@@ -294,7 +294,6 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
     val pendingBalanceRequest = PendingBalanceRequest(
       balanceId,
-      EnrolmentId("12345678ABC"),
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       requestedAt.toInstant,
@@ -310,7 +309,6 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     contentType(result) shouldBe Some(ContentTypes.JSON)
     contentAsJson(result) shouldBe Json.obj(
       "balanceId"          -> "22b9899e-24ee-48e6-a189-97d1f45391c4",
-      "enrolmentId"        -> "12345678ABC",
       "taxIdentifier"      -> "GB12345678900",
       "guaranteeReference" -> "05DE3300BE0001067A001017",
       "requestedAt"        -> "2021-09-14T09:52:15Z"
@@ -328,7 +326,6 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
     val pendingBalanceRequest = PendingBalanceRequest(
       balanceId,
-      EnrolmentId("12345678ABC"),
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       requestedAt.toInstant,
@@ -344,7 +341,6 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     contentType(result) shouldBe Some(ContentTypes.JSON)
     contentAsJson(result) shouldBe Json.obj(
       "balanceId"          -> "22b9899e-24ee-48e6-a189-97d1f45391c4",
-      "enrolmentId"        -> "12345678ABC",
       "taxIdentifier"      -> "GB12345678900",
       "guaranteeReference" -> "05DE3300BE0001067A001017",
       "requestedAt"        -> "2021-09-14T09:52:15Z",

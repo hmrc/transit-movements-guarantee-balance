@@ -94,10 +94,9 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
   }
 
-  val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-  val internalId  = InternalId("internalId")
-  val enrolmentId = EnrolmentId("12345678ABC")
-  val balanceId   = BalanceId(uuid)
+  val uuid       = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+  val internalId = InternalId("internalId")
+  val balanceId  = BalanceId(uuid)
 
   val balanceRequest = BalanceRequest(
     TaxIdentifier("GB12345678900"),
@@ -107,7 +106,6 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
 
   val pendingBalanceRequest = PendingBalanceRequest(
     balanceId,
-    enrolmentId,
     balanceRequest.taxIdentifier,
     balanceRequest.guaranteeReference,
     Instant.now,
@@ -130,7 +128,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     val assertion = for {
-      getBalanceFiber <- cacheService.submitBalanceRequest(enrolmentId, balanceRequest).start
+      getBalanceFiber <- cacheService.submitBalanceRequest(balanceRequest).start
 
       _ <- cacheService.putBalance(
         balanceId,
@@ -151,7 +149,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     val assertion = for {
-      getBalanceFiber <- cacheService.submitBalanceRequest(enrolmentId, balanceRequest).start
+      getBalanceFiber <- cacheService.submitBalanceRequest(balanceRequest).start
 
       _ <- cacheService.putBalance(
         balanceId,
@@ -172,7 +170,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     val assertion = for {
-      getBalanceFiber <- cacheService.submitBalanceRequest(enrolmentId, balanceRequest).start
+      getBalanceFiber <- cacheService.submitBalanceRequest(balanceRequest).start
 
       _ <- IO.sleep(250.millis)
 
@@ -196,7 +194,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     cacheService
-      .submitBalanceRequest(enrolmentId, balanceRequest)
+      .submitBalanceRequest(balanceRequest)
       .attempt
       .map {
         _ shouldBe Left(exception)
@@ -213,7 +211,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     cacheService
-      .submitBalanceRequest(enrolmentId, balanceRequest)
+      .submitBalanceRequest(balanceRequest)
       .attempt
       .map {
         _ shouldBe Left(exception)
@@ -222,16 +220,14 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
   }
 
   "BalanceRequestCacheService.updateBalance" should "return no errors when all goes well" in {
-    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId   = BalanceId(uuid)
-    val enrolmentId = EnrolmentId("12345678ABC")
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
 
     val balanceRequestSuccess =
       BalanceRequestSuccess(BigDecimal("1212211848.45"), CurrencyCode("GBP"))
 
     val updatedBalanceRequest = PendingBalanceRequest(
       balanceId,
-      enrolmentId,
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("21GB3300BE0001067A001017"),
       Instant.now.minusSeconds(5),
@@ -348,13 +344,11 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
   }
 
   "BalanceRequestCacheService.getBalance by ID" should "delegate to underlying repository" in {
-    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId   = BalanceId(uuid)
-    val enrolmentId = EnrolmentId("12345678ABC")
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
 
     val pendingBalanceRequest = PendingBalanceRequest(
       balanceId,
-      enrolmentId,
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       Instant.now.minusSeconds(5),

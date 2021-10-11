@@ -16,13 +16,11 @@
 
 package models.request
 
-import models.values.EnrolmentId
 import models.values.InternalId
 import play.api.mvc.Request
 import play.api.mvc.WrappedRequest
 
 case class AuthenticatedRequest[A](
   request: Request[A],
-  internalId: InternalId,
-  enrolmentId: EnrolmentId
+  internalId: InternalId
 ) extends WrappedRequest[A](request)

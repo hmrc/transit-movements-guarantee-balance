@@ -25,7 +25,6 @@ import models.PendingBalanceRequest
 import models.formats.MongoFormats
 import models.request.BalanceRequest
 import models.values.BalanceId
-import models.values.EnrolmentId
 import models.values.MessageIdentifier
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
@@ -56,7 +55,6 @@ trait BalanceRequestRepository {
   def getBalanceRequest(balanceId: BalanceId): IO[Option[PendingBalanceRequest]]
 
   def insertBalanceRequest(
-    enrolmentId: EnrolmentId,
     balanceRequest: BalanceRequest,
     requestedAt: Instant
   ): IO[BalanceId]
@@ -120,14 +118,12 @@ class BalanceRequestRepositoryImpl @Inject() (
     }
 
   def insertBalanceRequest(
-    enrolmentId: EnrolmentId,
     balanceRequest: BalanceRequest,
     requestedAt: Instant
   ): IO[BalanceId] = {
     val insertResult = BalanceId.next(clock, random).flatMap { id =>
       val pendingRequest = PendingBalanceRequest(
         balanceId = id,
-        enrolmentId = enrolmentId,
         taxIdentifier = balanceRequest.taxIdentifier,
         guaranteeReference = balanceRequest.guaranteeReference,
         requestedAt = requestedAt,

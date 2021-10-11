@@ -18,7 +18,6 @@ package controllers.actions
 
 import cats.arrow.FunctionK
 import models.request.AuthenticatedRequest
-import models.values.EnrolmentId
 import models.values.InternalId
 import play.api.mvc._
 import play.api.test.Helpers
@@ -40,7 +39,7 @@ object FakeAuthActionProvider
 object FakeAuthAction
   extends FakeAuthAction(new FunctionK[Request, AuthenticatedRequest] {
     def apply[A](request: Request[A]): AuthenticatedRequest[A] =
-      AuthenticatedRequest(request, InternalId("internalId"), EnrolmentId("enrolmentId"))
+      AuthenticatedRequest(request, InternalId("internalId"))
   })
 
 class FakeAuthAction(result: FunctionK[Request, AuthenticatedRequest])

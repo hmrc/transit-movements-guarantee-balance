@@ -34,7 +34,6 @@ import models.PendingBalanceRequest
 import models.errors._
 import models.request.BalanceRequest
 import models.values.BalanceId
-import models.values.EnrolmentId
 import models.values.MessageIdentifier
 import uk.gov.hmrc.http.HeaderCarrier
 
@@ -45,7 +44,6 @@ import javax.inject.Singleton
 @ImplementedBy(classOf[BalanceRequestCacheServiceImpl])
 trait BalanceRequestCacheService {
   def submitBalanceRequest(
-    enrolmentId: EnrolmentId,
     balanceRequest: BalanceRequest
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]]
 
@@ -84,10 +82,10 @@ class BalanceRequestCacheServiceImpl @Inject() (
       Deferred.unsafe[IO, BalanceRequestResponse]
     }
 
-  private def submitRequest(enrolmentId: EnrolmentId, balanceRequest: BalanceRequest)(implicit
+  private def submitRequest(balanceRequest: BalanceRequest)(implicit
     hc: HeaderCarrier
   ): EitherT[IO, BalanceRequestError, BalanceId] =
-    EitherT(service.submitBalanceRequest(enrolmentId, balanceRequest))
+    EitherT(service.submitBalanceRequest(balanceRequest))
 
   private def awaitResponse(
     balanceId: BalanceId,
@@ -104,12 +102,11 @@ class BalanceRequestCacheServiceImpl @Inject() (
   }
 
   def submitBalanceRequest(
-    enrolmentId: EnrolmentId,
     balanceRequest: BalanceRequest
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]] = {
 
     val balanceResponse = for {
-      balanceId <- submitRequest(enrolmentId, balanceRequest)
+      balanceId <- submitRequest(balanceRequest)
       deferred = cache.get(balanceId)
       response <- awaitResponse(balanceId, deferred)
       _ = cache.invalidate(balanceId)
