@@ -51,7 +51,7 @@ class BalanceRequestUpdateWorker @Inject() (
     Future.successful(isShutdown.set(true))
   }
 
-  repository
+  private val changeStream = repository
     .changeStream(resumeToken.get())
     .takeWhile(_ => !isShutdown.get())
     .mapAsync(1) { doc =>
@@ -64,11 +64,13 @@ class BalanceRequestUpdateWorker @Inject() (
       if (doc.getOperationType != OperationType.UPDATE)
         Future.unit
       else {
-        val balanceRequest  = doc.getFullDocument
-        val balanceId       = balanceRequest.balanceId
-        val balanceResponse = balanceRequest.response
+        val balanceResponse = for {
+          request <- Option(doc.getFullDocument)
+          balanceId = request.balanceId
+          balanceResponse <- request.response
+        } yield cache.putBalance(balanceId, balanceResponse)
+
         balanceResponse
-          .map(cache.putBalance(balanceId, _))
           .getOrElse(IO.unit)
           .unsafeToFuture()
       }
@@ -80,5 +82,14 @@ class BalanceRequestUpdateWorker @Inject() (
       case _ =>
         Supervision.Stop
     })
-    .run()
+
+  def runChangeStream: Future[Unit] =
+    for {
+      _ <- changeStream.run()
+      // Try to restart the change stream on invalidations unless we have a shutdown signal
+      _ <- if (isShutdown.get()) Future.unit else runChangeStream
+    } yield ()
+
+  val changeStreamCompleted =
+    runChangeStream
 }

@@ -18,12 +18,14 @@ package workers
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import cats.effect.IO
 import cats.effect.kernel.Deferred
+import cats.effect.kernel.Ref
 import cats.effect.unsafe.implicits.global
-import config.AppConfig
-import models.BalanceRequestResponse
+import com.mongodb.client.model.changestream.ChangeStreamDocument
+import com.mongodb.client.model.changestream.OperationType
 import models.BalanceRequestSuccess
 import models.PendingBalanceRequest
 import models.request.BalanceRequest
@@ -32,60 +34,43 @@ import models.values.BalanceId
 import models.values.CurrencyCode
 import models.values.GuaranteeReference
 import models.values.TaxIdentifier
-import org.mockito.ArgumentMatchersSugar
-import org.mockito.IdiomaticMockito
-import org.mockito.captor.ArgCaptor
+import org.mongodb.scala.bson.BsonObjectId
+import org.mongodb.scala.bson.collection.immutable.Document
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.Configuration
 import play.api.inject.DefaultApplicationLifecycle
 import play.api.test.DefaultAwaitTimeout
 import play.api.test.FutureAwaits
-import repositories.BalanceRequestRepositoryImpl
-import services.BalanceRequestCacheService
-import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
-import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
+import repositories.FakeBalanceRequestRepository
+import services.FakeBalanceRequestCacheService
 
 import java.security.SecureRandom
 import java.time.Clock
 import java.time.ZoneOffset
+import java.util.UUID
 
 class BalanceRequestUpdateWorkerSpec
   extends AnyFlatSpec
   with Matchers
   with FutureAwaits
   with DefaultAwaitTimeout
-  with IdiomaticMockito
-  with ArgumentMatchersSugar
-  with BeforeAndAfterAll
-  with DefaultPlayMongoRepositorySupport[PendingBalanceRequest] {
+  with BeforeAndAfterAll {
 
   implicit val system       = ActorSystem(suiteName)
   implicit val materializer = Materializer(system)
   implicit val ec           = materializer.executionContext
 
-  val clock     = Clock.tickSeconds(ZoneOffset.UTC)
-  val lifecycle = new DefaultApplicationLifecycle
-  val random    = new SecureRandom
+  val clock  = Clock.tickSeconds(ZoneOffset.UTC)
+  val random = new SecureRandom
 
   override def afterAll() = {
-    await(lifecycle.stop())
     TestKit.shutdownActorSystem(system)
     super.afterAll()
   }
 
-  override lazy val repository = new BalanceRequestRepositoryImpl(
-    mongoComponent,
-    mkAppConfig(Configuration("mongodb.balance-requests.ttl" -> "5 minutes")),
-    clock,
-    random
-  )
-
-  def mkAppConfig(config: Configuration) = {
-    val servicesConfig = new ServicesConfig(config)
-    new AppConfig(config, servicesConfig)
-  }
+  val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+  val balanceId = BalanceId(uuid)
 
   val taxIdentifier      = TaxIdentifier("GB12345678900")
   val guaranteeReference = GuaranteeReference("05DE3300BE0001067A001017")
@@ -102,40 +87,108 @@ class BalanceRequestUpdateWorkerSpec
     CurrencyCode("GBP")
   )
 
-  "BalanceRequestUpdateWorker" should "update the balance request cache when a request is updated" in {
-    val putBalanceDeferred = Deferred.unsafe[IO, Unit]
-    val completeDeferred   = putBalanceDeferred.complete(()).void
+  val pendingBalanceRequest = PendingBalanceRequest(
+    balanceId,
+    balanceRequest.taxIdentifier,
+    balanceRequest.guaranteeReference,
+    clock.instant(),
+    Some(clock.instant()),
+    Some(balanceRequestSuccess)
+  )
 
-    val cacheService = mock[BalanceRequestCacheService]
+  def mkChangeDoc(
+    balanceRequest: PendingBalanceRequest
+  ): ChangeStreamDocument[PendingBalanceRequest] =
+    new ChangeStreamDocument[PendingBalanceRequest](
+      OperationType.UPDATE,
+      Document("_id" -> BsonObjectId()).toBsonDocument(),
+      null,
+      null,
+      balanceRequest,
+      null,
+      null,
+      null,
+      null,
+      null
+    )
 
-    cacheService.putBalance(any[BalanceId], any[BalanceRequestResponse]) returns completeDeferred
+  "BalanceRequestUpdateWorker" should "shut down when given stop signal" in {
+    val changeStream = Source.unfold(()) { _ => Some(((), mkChangeDoc(pendingBalanceRequest))) }
 
-    new BalanceRequestUpdateWorker(
-      cacheService,
-      repository,
+    val lifecycle = new DefaultApplicationLifecycle
+
+    val worker = new BalanceRequestUpdateWorker(
+      FakeBalanceRequestCacheService(),
+      FakeBalanceRequestRepository(changeStreamResponse = changeStream),
       lifecycle
     )
 
-    val balanceId = await {
-      repository.insertBalanceRequest(balanceRequest, clock.instant()).unsafeToFuture()
+    await(lifecycle.stop())
+
+    await(worker.changeStreamCompleted)
+
+    assert(worker.isShutdown.get())
+  }
+
+  it should "update the balance request cache when there is a change stream entry" in {
+    val putBalanceCalled = Deferred.unsafe[IO, Unit]
+    val completeDeferred = putBalanceCalled.complete(()).void
+
+    val changeDoc    = mkChangeDoc(pendingBalanceRequest)
+    val changeStream = Source(List(changeDoc))
+
+    val lifecycle = new DefaultApplicationLifecycle
+
+    val worker = new BalanceRequestUpdateWorker(
+      FakeBalanceRequestCacheService(putBalanceResponse = completeDeferred),
+      FakeBalanceRequestRepository(changeStreamResponse = changeStream),
+      lifecycle
+    )
+
+    await(putBalanceCalled.get.unsafeToFuture())
+
+    await(lifecycle.stop())
+
+    worker.resumeToken.get() shouldBe Some(Document(changeDoc.getResumeToken))
+  }
+
+  it should "restart on non fatal errors" in {
+    val putBalanceRef = Ref.unsafe[IO, Int](0)
+
+    val incPutCalls = for {
+      calls <- putBalanceRef.updateAndGet(_ + 1)
+      _     <- if (calls == 2) IO.raiseError(new RuntimeException) else IO.unit
+    } yield ()
+
+    val doc1 = mkChangeDoc(pendingBalanceRequest)
+    val doc2 = mkChangeDoc(pendingBalanceRequest)
+    val doc3 = mkChangeDoc(pendingBalanceRequest)
+
+    // Should emit the 3 docs only on the first run of the change stream
+    val changeStream = Source.single(()).statefulMapConcat { () =>
+      var remaining = List(doc1, doc2, doc3)
+
+      { _ =>
+        val emit = remaining
+        remaining = List.empty
+        emit
+      }
     }
 
-    val response = await {
-      repository
-        .updateBalanceRequest(balanceId.messageIdentifier, clock.instant(), balanceRequestSuccess)
-        .unsafeToFuture()
-    }
+    val lifecycle = new DefaultApplicationLifecycle
 
-    response shouldBe a[Some[_]]
+    val worker = new BalanceRequestUpdateWorker(
+      FakeBalanceRequestCacheService(putBalanceResponse = incPutCalls),
+      FakeBalanceRequestRepository(changeStreamResponse = changeStream),
+      lifecycle
+    )
 
-    await(putBalanceDeferred.get.unsafeToFuture())
+    val calledThreeTimes = putBalanceRef.get.iterateUntil(_ >= 3).unsafeToFuture()
 
-    val idCaptor       = ArgCaptor[BalanceId]
-    val responseCaptor = ArgCaptor[BalanceRequestResponse]
+    await(calledThreeTimes.flatMap(_ => lifecycle.stop()))
 
-    cacheService.putBalance(idCaptor.capture, responseCaptor.capture) wasCalled once
+    await(worker.changeStreamCompleted)
 
-    idCaptor.value shouldBe balanceId
-    responseCaptor.value shouldBe balanceRequestSuccess
+    worker.resumeToken.get() shouldBe Some(Document(doc3.getResumeToken))
   }
 }
