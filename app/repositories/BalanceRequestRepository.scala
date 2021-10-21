@@ -16,8 +16,11 @@
 
 package repositories
 
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import cats.effect.IO
 import com.google.inject.ImplementedBy
+import com.mongodb.client.model.changestream.ChangeStreamDocument
 import config.AppConfig
 import logging.Logging
 import models.BalanceRequestResponse
@@ -28,6 +31,7 @@ import models.values.BalanceId
 import models.values.MessageIdentifier
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
+import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.model.Filters
 import org.mongodb.scala.model.FindOneAndUpdateOptions
 import org.mongodb.scala.model.IndexModel
@@ -35,6 +39,7 @@ import org.mongodb.scala.model.IndexOptions
 import org.mongodb.scala.model.Indexes
 import org.mongodb.scala.model.ReturnDocument
 import org.mongodb.scala.model.Updates
+import org.mongodb.scala.model.changestream.FullDocument
 import retry.RetryPolicies
 import retry.syntax.all._
 import runtime.RetryLogging
@@ -64,6 +69,10 @@ trait BalanceRequestRepository {
     completedAt: Instant,
     response: BalanceRequestResponse
   ): IO[Option[PendingBalanceRequest]]
+
+  def changeStream(
+    resumeToken: Option[Document]
+  ): Source[ChangeStreamDocument[PendingBalanceRequest], NotUsed]
 }
 
 @Singleton
@@ -163,6 +172,22 @@ class BalanceRequestRepositoryImpl @Inject() (
           .returnDocument(ReturnDocument.AFTER)
       )
     }
+
+  def changeStream(
+    resumeToken: Option[Document]
+  ): Source[ChangeStreamDocument[PendingBalanceRequest], NotUsed] = {
+    val changeStream = collection.watch().fullDocument(FullDocument.UPDATE_LOOKUP)
+
+    Source.fromPublisher {
+      resumeToken
+        .map { token =>
+          changeStream.startAfter(token)
+        }
+        .getOrElse {
+          changeStream
+        }
+    }
+  }
 }
 
 object BalanceRequestRepository {
