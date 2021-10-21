@@ -28,7 +28,6 @@ import models.BalanceRequestSuccess
 import models.MessageType
 import models.PendingBalanceRequest
 import models.errors.FunctionalError
-import models.errors.InternalServiceError
 import models.errors.UpstreamTimeoutError
 import models.request.BalanceRequest
 import models.values._
@@ -288,7 +287,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       .unsafeToFuture()
   }
 
-  it should "return internal service error if the underlying balance request is not updated with the response" in {
+  it should "propage runtime exception when updating balance request" in {
 
     val validResponseXml = Utility
       .trim(
@@ -328,19 +327,18 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       .toString
 
     val cacheService = service(
-      updateBalanceRequestResponse = IO.some(pendingBalanceRequest)
+      updateBalanceRequestResponse = IO.raiseError(new RuntimeException)
     )
 
-    cacheService
-      .updateBalance(
-        balanceId.messageIdentifier,
-        MessageType.ResponseQueryOnGuarantees,
-        validResponseXml.toString
-      )
-      .map {
-        _ shouldBe Left(InternalServiceError())
-      }
-      .unsafeToFuture()
+    recoverToSucceededIf[RuntimeException] {
+      cacheService
+        .updateBalance(
+          balanceId.messageIdentifier,
+          MessageType.ResponseQueryOnGuarantees,
+          validResponseXml.toString
+        )
+        .unsafeToFuture()
+    }
   }
 
   "BalanceRequestCacheService.getBalance by ID" should "delegate to underlying repository" in {
@@ -366,5 +364,20 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
         _ shouldBe Some(pendingBalanceRequest)
       }
       .unsafeToFuture()
+  }
+
+  it should "propagate runtime exception when fetching balance request" in {
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
+
+    val cacheService = service(
+      getBalanceRequestResponse = IO.raiseError(new RuntimeException)
+    )
+
+    recoverToSucceededIf[RuntimeException] {
+      cacheService
+        .getBalance(balanceId)
+        .unsafeToFuture()
+    }
   }
 }

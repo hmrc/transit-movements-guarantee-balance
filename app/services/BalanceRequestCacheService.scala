@@ -134,25 +134,8 @@ class BalanceRequestCacheServiceImpl @Inject() (
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
-  ): IO[Either[BalanceRequestError, Unit]] = {
-    val updateBalance = for {
-      updated <- EitherT {
-        service.updateBalanceRequest(recipient, messageType, responseMessage)
-      }
-
-      response <- EitherT.fromOptionM(
-        IO.pure(updated.response),
-        logger
-          .error("Unable to find balance response data after updating balance request record")
-          .map(_ => BalanceRequestError.internalServiceError())
-      )
-
-      _ <- EitherT.right[BalanceRequestError] {
-        putBalance(updated.balanceId, response)
-      }
-
-    } yield ()
-
-    updateBalance.value
-  }
+  ): IO[Either[BalanceRequestError, Unit]] =
+    EitherT {
+      service.updateBalanceRequest(recipient, messageType, responseMessage)
+    }.void.value
 }
