@@ -96,15 +96,27 @@ class BalanceRequestUpdateWorkerSpec
     Some(balanceRequestSuccess)
   )
 
+  def mkChangeStream(entries: List[ChangeStreamDocument[PendingBalanceRequest]]) = {
+    // Should emit the entries only once so we don't get an infinite cycle on restarts
+    @volatile var remaining = entries
+
+    Source.single(()).statefulMapConcat { () => _ =>
+      val emit = remaining
+      remaining = List.empty
+      emit
+    }
+  }
+
   def mkChangeDoc(
-    balanceRequest: PendingBalanceRequest
+    balanceRequest: Option[PendingBalanceRequest] = None,
+    operationType: OperationType = OperationType.UPDATE
   ): ChangeStreamDocument[PendingBalanceRequest] =
     new ChangeStreamDocument[PendingBalanceRequest](
-      OperationType.UPDATE,
+      operationType,
       Document("_id" -> BsonObjectId()).toBsonDocument(),
       null,
       null,
-      balanceRequest,
+      balanceRequest.orNull,
       null,
       null,
       null,
@@ -113,7 +125,9 @@ class BalanceRequestUpdateWorkerSpec
     )
 
   "BalanceRequestUpdateWorker" should "shut down when given stop signal" in {
-    val changeStream = Source.unfold(()) { _ => Some(((), mkChangeDoc(pendingBalanceRequest))) }
+    val changeStream = Source.unfold(()) { _ =>
+      Some(((), mkChangeDoc(Some(pendingBalanceRequest))))
+    }
 
     val lifecycle = new DefaultApplicationLifecycle
 
@@ -130,11 +144,11 @@ class BalanceRequestUpdateWorkerSpec
     assert(worker.isShutdown.get())
   }
 
-  it should "update the balance request cache when there is a change stream entry" in {
+  it should "update the balance request cache when there is a change stream update entry" in {
     val putBalanceCalled = Deferred.unsafe[IO, Unit]
     val completeDeferred = putBalanceCalled.complete(()).void
 
-    val changeDoc    = mkChangeDoc(pendingBalanceRequest)
+    val changeDoc    = mkChangeDoc(Some(pendingBalanceRequest))
     val changeStream = Source(List(changeDoc))
 
     val lifecycle = new DefaultApplicationLifecycle
@@ -150,6 +164,62 @@ class BalanceRequestUpdateWorkerSpec
     await(lifecycle.stop())
 
     worker.resumeToken.get() shouldBe Some(Document(changeDoc.getResumeToken))
+
+  }
+
+  it should "only update the cache for update operations" in {
+    val putBalanceRef = Ref.unsafe[IO, Int](0)
+    val incPutCalls   = putBalanceRef.update(_ + 1)
+
+    val doc1 = mkChangeDoc(Some(pendingBalanceRequest))
+    val doc2 = mkChangeDoc(operationType = OperationType.DELETE)
+    val doc3 = mkChangeDoc(Some(pendingBalanceRequest), operationType = OperationType.INSERT)
+    val doc4 = mkChangeDoc(Some(pendingBalanceRequest))
+
+    val changeStream = mkChangeStream(List(doc1, doc2, doc3, doc4))
+
+    val lifecycle = new DefaultApplicationLifecycle
+
+    val worker = new BalanceRequestUpdateWorker(
+      FakeBalanceRequestCacheService(putBalanceResponse = incPutCalls),
+      FakeBalanceRequestRepository(changeStreamResponse = changeStream),
+      lifecycle
+    )
+
+    val calledTwice = putBalanceRef.get.iterateUntil(_ >= 2).unsafeToFuture()
+
+    await(calledTwice.flatMap(_ => lifecycle.stop()))
+
+    await(worker.changeStreamCompleted)
+
+    worker.resumeToken.get() shouldBe Some(Document(doc4.getResumeToken))
+  }
+
+  it should "ignore update entries without a full document" in {
+    val putBalanceRef = Ref.unsafe[IO, Int](0)
+    val incPutCalls   = putBalanceRef.update(_ + 1)
+
+    val doc1 = mkChangeDoc(Some(pendingBalanceRequest))
+    val doc2 = mkChangeDoc(None)
+    val doc3 = mkChangeDoc(Some(pendingBalanceRequest))
+
+    val changeStream = mkChangeStream(List(doc1, doc2, doc3))
+
+    val lifecycle = new DefaultApplicationLifecycle
+
+    val worker = new BalanceRequestUpdateWorker(
+      FakeBalanceRequestCacheService(putBalanceResponse = incPutCalls),
+      FakeBalanceRequestRepository(changeStreamResponse = changeStream),
+      lifecycle
+    )
+
+    val calledTwice = putBalanceRef.get.iterateUntil(_ >= 2).unsafeToFuture()
+
+    await(calledTwice.flatMap(_ => lifecycle.stop()))
+
+    await(worker.changeStreamCompleted)
+
+    worker.resumeToken.get() shouldBe Some(Document(doc3.getResumeToken))
   }
 
   it should "restart on non fatal errors" in {
@@ -160,20 +230,11 @@ class BalanceRequestUpdateWorkerSpec
       _     <- if (calls == 2) IO.raiseError(new RuntimeException) else IO.unit
     } yield ()
 
-    val doc1 = mkChangeDoc(pendingBalanceRequest)
-    val doc2 = mkChangeDoc(pendingBalanceRequest)
-    val doc3 = mkChangeDoc(pendingBalanceRequest)
+    val doc1 = mkChangeDoc(Some(pendingBalanceRequest))
+    val doc2 = mkChangeDoc(Some(pendingBalanceRequest))
+    val doc3 = mkChangeDoc(Some(pendingBalanceRequest))
 
-    // Should emit the 3 docs only on the first run of the change stream
-    val changeStream = Source.single(()).statefulMapConcat { () =>
-      var remaining = List(doc1, doc2, doc3)
-
-      { _ =>
-        val emit = remaining
-        remaining = List.empty
-        emit
-      }
-    }
+    val changeStream = mkChangeStream(List(doc1, doc2, doc3))
 
     val lifecycle = new DefaultApplicationLifecycle
 
