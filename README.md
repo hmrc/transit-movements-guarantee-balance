@@ -40,7 +40,7 @@ To run with sbt, stop the Service Manager instance of this service using `sm --s
 
 Run `./run_all_tests.sh`. This also checks code formatting and does coverage testing.
 
-Use `sbt test it:test` to run only the tests without the additional checks.
+Use `sbt test IntegrationTest/test` to run only the tests without the additional checks.
 
 ### License
 
