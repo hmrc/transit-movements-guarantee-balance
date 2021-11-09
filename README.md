@@ -16,7 +16,7 @@ The easiest way to run MongoDB for local development is to use [Docker](https://
 ##### To run MongoDB
 
 ```
-> docker run --restart unless-stopped -d -p 27017-27019:27017-27019 --name mongodb mongo:4.0 --replSet rs
+> docker run --restart unless-stopped -d -p 27017-27019:27017-27019 --name mongodb mongo:4.0 --replSet rs0
 ```
 
 ##### To configure MongoDB to run as a replica set
