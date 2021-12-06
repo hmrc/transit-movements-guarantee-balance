@@ -39,8 +39,8 @@ class ErrorCapturingXmlLoader(
     messageParser
 
   override def adapter = new NoBindingFactoryAdapter {
-    override def warning(error: SAXParseException): Unit =
-      errorBuffer += SchemaValidationError.fromSaxParseException(error)
+    override def warning(error: SAXParseException): Unit = ()
+
     override def error(error: SAXParseException): Unit =
       errorBuffer += SchemaValidationError.fromSaxParseException(error)
     override def fatalError(error: SAXParseException): Unit =

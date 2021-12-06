@@ -30,9 +30,14 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.play.json.Union
 
+object HttpFormats extends HttpFormats
+
 trait HttpFormats extends CommonFormats {
   implicit val balanceIdFormat: Format[BalanceId] =
     Json.valueFormat[BalanceId]
+
+  implicit val messageIdWrites: Writes[MessageIdentifier] =
+    Writes.of[String].contramap(_.hexString)
 
   def withStatusField(jsObject: JsObject, status: String): JsObject =
     jsObject ++ Json.obj(ErrorCode.FieldName -> status)

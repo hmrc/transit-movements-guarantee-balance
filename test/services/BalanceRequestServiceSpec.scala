@@ -34,11 +34,13 @@ import models.errors.NotFoundError
 import models.errors.SelfCheckError
 import models.errors.UpstreamServiceError
 import models.errors.XmlValidationError
+import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
 import models.values._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
+import play.api.test.FakeRequest
 import repositories.FakeBalanceRequestRepository
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse
@@ -82,6 +84,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
       validator,
       parser,
       FakeEisRouterConnector(sendMessageResponse),
+      FakeAuditService,
       appConfig,
       Clock.systemUTC(),
       new FakeMetrics
@@ -91,16 +94,22 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
   val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
   val balanceId = BalanceId(uuid)
 
-  val balanceRequest = BalanceRequest(
-    TaxIdentifier("GB12345678900"),
-    GuaranteeReference("05DE3300BE0001067A001017"),
-    AccessCode("1234")
-  )
+  val balanceRequest =
+    AuthenticatedRequest(
+      FakeRequest().withBody(
+        BalanceRequest(
+          TaxIdentifier("GB12345678900"),
+          GuaranteeReference("05DE3300BE0001067A001017"),
+          AccessCode("1234")
+        )
+      ),
+      InternalId("ABC123")
+    )
 
   val pendingBalanceRequest = PendingBalanceRequest(
     balanceId,
-    balanceRequest.taxIdentifier,
-    balanceRequest.guaranteeReference,
+    balanceRequest.body.taxIdentifier,
+    balanceRequest.body.guaranteeReference,
     Instant.now,
     completedAt = None,
     response = None

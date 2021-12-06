@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package models.errors
+package models.audit
 
-import models.values.ErrorPointer
-import models.values.ErrorType
+sealed abstract class AuditEventType(val name: String) extends Product with Serializable
 
-case class XmlError(
-  errorType: ErrorType,
-  errorPointer: ErrorPointer,
-  errorReason: Option[String]
-)
+object AuditEventType {
+  case object RequestSent     extends AuditEventType("RequestSent")
+  case object RequestNotFound extends AuditEventType("RequestNotFound")
+  case object SuccessResponse extends AuditEventType("SuccessResponse")
+  case object ErrorResponse   extends AuditEventType("ErrorResponse")
+  case object InvalidResponse extends AuditEventType("InvalidResponse")
+}

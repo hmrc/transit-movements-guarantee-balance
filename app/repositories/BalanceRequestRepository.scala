@@ -106,6 +106,7 @@ class BalanceRequestRepositoryImpl @Inject() (
     ),
     extraCodecs = Seq(
       new UuidCodec(UuidRepresentation.STANDARD),
+      Codecs.playFormatCodec(MongoFormats.messageIdentifierFormat),
       Codecs.playFormatCodec(MongoFormats.balanceRequestResponseFormat),
       Codecs.playFormatCodec(MongoFormats.balanceRequestSuccessFormat),
       Codecs.playFormatCodec(MongoFormats.balanceRequestFunctionalErrorFormat),
@@ -163,7 +164,7 @@ class BalanceRequestRepositoryImpl @Inject() (
   ): IO[Option[PendingBalanceRequest]] =
     IO.observeFirstOption {
       collection.findOneAndUpdate(
-        Filters.eq("messageIdentifier", messageIdentifier.value),
+        Filters.eq("messageIdentifier", messageIdentifier),
         Updates.combine(
           Updates.set("completedAt", completedAt),
           Updates.set("response", response)

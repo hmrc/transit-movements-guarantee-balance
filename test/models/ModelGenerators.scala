@@ -93,11 +93,16 @@ trait ModelGenerators {
       arbitrary[Int].map(ErrorType.apply)
     }
 
+  implicit val arbErrorPointer: Arbitrary[ErrorPointer] =
+    Arbitrary {
+      Gen.alphaNumStr.map(ErrorPointer.apply)
+    }
+
   implicit val arbFunctionalError: Arbitrary[FunctionalError] =
     Arbitrary {
       for {
         errorType    <- arbitrary[ErrorType]
-        errorPointer <- Gen.alphaNumStr
+        errorPointer <- arbitrary[ErrorPointer]
         errorReason  <- Gen.option(Gen.alphaNumStr)
       } yield FunctionalError(errorType, errorPointer, errorReason)
     }
@@ -106,7 +111,7 @@ trait ModelGenerators {
     Arbitrary {
       for {
         errorType    <- arbitrary[ErrorType]
-        errorPointer <- Gen.alphaNumStr
+        errorPointer <- arbitrary[ErrorPointer]
         errorReason  <- Gen.option(Gen.alphaNumStr)
       } yield XmlError(errorType, errorPointer, errorReason)
     }
