@@ -10,7 +10,7 @@
 # Failing to follow this rule may result in test routes deployed in production.
 
 + nocsrf
-DELETE     /transit-movements-guarantee-balance/test-only/dropMongoCollection       controllers.testOnly.TestOnlyMongoController.dropMongoCollection()
+DELETE     /transit-movements-guarantee-balance/test-only/drop-mongo-collection       controllers.testOnly.TestOnlyMongoController.dropMongoCollection()
 
 # Add all the application routes to the prod.routes file
 ->         /                          prod.Routes
