@@ -26,23 +26,22 @@ import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 import javax.inject.Inject
 import scala.concurrent.ExecutionContext
 
-class TestOnlyMongoController @Inject()(
+class TestOnlyMongoController @Inject() (
   override val messagesApi: MessagesApi,
   mongo: ReactiveMongoApi,
   cc: ControllerComponents
 )(implicit ec: ExecutionContext)
-    extends BackendController(cc) {
+  extends BackendController(cc) {
 
-  def dropMongoCollection(): Action[AnyContent] = Action.async {
-    _ =>
-      mongo.database
-        .map(_.collection[JSONCollection](BalanceRequestRepository.collectionName))
-        .flatMap(
-          _.drop(failIfNotFound = false).map {
-            case true => Ok
-            case false => InternalServerError
-          }
-        )
+  def dropMongoCollection(): Action[AnyContent] = Action.async { _ =>
+    mongo.database
+      .map(_.collection[JSONCollection](BalanceRequestRepository.collectionName))
+      .flatMap(
+        _.drop(failIfNotFound = false).map {
+          case true  => Ok
+          case false => InternalServerError
+        }
+      )
   }
 
 }
