@@ -1,5 +1,4 @@
 import play.core.PlayVersion
-import play.sbt.PlayImport._
 import sbt._
 
 object AppDependencies {
@@ -22,7 +21,8 @@ object AppDependencies {
     "com.github.blemale"     %% "scaffeine"                 % "4.1.0",
     "org.scala-lang.modules" %% "scala-java8-compat"        % "1.0.1",
     "io.dropwizard.metrics"   % "metrics-caffeine"          % "4.2.0",
-    compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
+    compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
+    "org.reactivemongo"      %% "play2-reactivemongo"       % "0.20.13-play28"
   )
 
   val test = Seq(
