@@ -10,6 +10,7 @@ object AppDependencies {
   val hmrcMongoVersion  = "0.55.0"
 
   val compile = Seq(
+    "org.reactivemongo"      %% "play2-reactivemongo"       % "0.20.13-play28",
     "uk.gov.hmrc"            %% "bootstrap-backend-play-28" % bootstrapVersion,
     "uk.gov.hmrc.mongo"      %% "hmrc-mongo-play-28"        % hmrcMongoVersion,
     "uk.gov.hmrc"            %% "play-json-union-formatter" % "1.15.0-play-28",
@@ -21,8 +22,7 @@ object AppDependencies {
     "com.github.blemale"     %% "scaffeine"                 % "4.1.0",
     "org.scala-lang.modules" %% "scala-java8-compat"        % "1.0.1",
     "io.dropwizard.metrics"   % "metrics-caffeine"          % "4.2.0",
-    compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
-    "org.reactivemongo"      %% "play2-reactivemongo"       % "0.20.13-play28"
+    compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
   )
 
   val test = Seq(
