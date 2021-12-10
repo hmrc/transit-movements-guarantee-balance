@@ -10,7 +10,6 @@ object AppDependencies {
   val hmrcMongoVersion  = "0.55.0"
 
   val compile = Seq(
-    "org.reactivemongo"      %% "play2-reactivemongo"       % "0.20.13-play28",
     "uk.gov.hmrc"            %% "bootstrap-backend-play-28" % bootstrapVersion,
     "uk.gov.hmrc.mongo"      %% "hmrc-mongo-play-28"        % hmrcMongoVersion,
     "uk.gov.hmrc"            %% "play-json-union-formatter" % "1.15.0-play-28",

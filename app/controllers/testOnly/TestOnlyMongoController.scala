@@ -16,32 +16,30 @@
 
 package controllers.testOnly
 
-import play.api.i18n.MessagesApi
+import cats.effect.IO
+import cats.effect.unsafe.IORuntime
+import controllers.actions.IOActions
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
-import play.modules.reactivemongo.ReactiveMongoApi
-import reactivemongo.play.json.collection.JSONCollection
-import repositories.BalanceRequestRepository
+import repositories.{BalanceRequestRepository, IOObservables}
+import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import javax.inject.Inject
-import scala.concurrent.ExecutionContext
 
 class TestOnlyMongoController @Inject() (
-  override val messagesApi: MessagesApi,
-  mongo: ReactiveMongoApi,
+  val runtime: IORuntime,
+  mongo: MongoComponent,
   cc: ControllerComponents
-)(implicit ec: ExecutionContext)
-  extends BackendController(cc) {
+) extends BackendController(cc)
+  with IOObservables
+  with IOActions {
 
-  def dropMongoCollection(): Action[AnyContent] = Action.async { _ =>
-    mongo.database
-      .map(_.collection[JSONCollection](BalanceRequestRepository.collectionName))
-      .flatMap(
-        _.drop(failIfNotFound = false).map {
-          case true  => Ok
-          case false => InternalServerError
-        }
-      )
+  def dropMongoCollection(): Action[AnyContent] = Action.io { _ =>
+    IO.observeFirstOption {
+      mongo.database.getCollection(BalanceRequestRepository.collectionName).drop()
+    }.map { _ =>
+      Ok
+    }
   }
 
 }
