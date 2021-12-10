@@ -16,12 +16,13 @@
 
 package models.values
 
+import akka.util.ByteString
 import play.api.Logging
 import play.api.mvc.PathBindable
 
 import java.nio.ByteBuffer
 
-case class MessageIdentifier(value: Array[Byte]) extends AnyVal {
+case class MessageIdentifier(value: ByteString) extends AnyVal {
   def hexString = {
     val sb = new StringBuilder
     for (byte <- value)
@@ -40,7 +41,7 @@ object MessageIdentifier extends Logging {
         val buffer   = ByteBuffer.wrap(new Array[Byte](12))
         val hexBytes = hexString.sliding(2, 2)
         for (hexByte <- hexBytes) { buffer.put(Integer.parseInt(hexByte, 16).toByte) }
-        MessageIdentifier(buffer.array())
+        MessageIdentifier(ByteString(buffer.array()))
       },
       id => s"MDTP-GUA-${id.hexString}",
       (key, exc) => {

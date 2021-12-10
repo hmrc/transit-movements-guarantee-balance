@@ -32,6 +32,7 @@ import models.BalanceRequestResponse
 import models.MessageType
 import models.PendingBalanceRequest
 import models.errors._
+import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.MessageIdentifier
@@ -44,7 +45,7 @@ import javax.inject.Singleton
 @ImplementedBy(classOf[BalanceRequestCacheServiceImpl])
 trait BalanceRequestCacheService {
   def submitBalanceRequest(
-    balanceRequest: BalanceRequest
+    balanceRequest: AuthenticatedRequest[BalanceRequest]
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]]
 
   def getBalance(
@@ -60,7 +61,7 @@ trait BalanceRequestCacheService {
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
-  ): IO[Either[BalanceRequestError, Unit]]
+  )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, Unit]]
 }
 
 @Singleton
@@ -82,10 +83,10 @@ class BalanceRequestCacheServiceImpl @Inject() (
       Deferred.unsafe[IO, BalanceRequestResponse]
     }
 
-  private def submitRequest(balanceRequest: BalanceRequest)(implicit
+  private def submitRequest(request: AuthenticatedRequest[BalanceRequest])(implicit
     hc: HeaderCarrier
   ): EitherT[IO, BalanceRequestError, BalanceId] =
-    EitherT(service.submitBalanceRequest(balanceRequest))
+    EitherT(service.submitBalanceRequest(request))
 
   private def awaitResponse(
     balanceId: BalanceId,
@@ -102,11 +103,11 @@ class BalanceRequestCacheServiceImpl @Inject() (
   }
 
   def submitBalanceRequest(
-    balanceRequest: BalanceRequest
+    request: AuthenticatedRequest[BalanceRequest]
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]] = {
 
     val balanceResponse = for {
-      balanceId <- submitRequest(balanceRequest)
+      balanceId <- submitRequest(request)
       deferred = cache.get(balanceId)
       response <- awaitResponse(balanceId, deferred)
       _ = cache.invalidate(balanceId)
@@ -134,7 +135,7 @@ class BalanceRequestCacheServiceImpl @Inject() (
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
-  ): IO[Either[BalanceRequestError, Unit]] =
+  )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, Unit]] =
     EitherT {
       service.updateBalanceRequest(recipient, messageType, responseMessage)
     }.void.value

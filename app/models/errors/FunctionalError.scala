@@ -16,10 +16,11 @@
 
 package models.errors
 
+import models.values.ErrorPointer
 import models.values.ErrorType
 
 case class FunctionalError(
   errorType: ErrorType,
-  errorPointer: String,
+  errorPointer: ErrorPointer,
   errorReason: Option[String]
 )

@@ -28,6 +28,7 @@ import models.BalanceRequestResponse
 import models.MessageType
 import models.PendingBalanceRequest
 import models.errors._
+import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.MessageIdentifier
@@ -50,6 +51,7 @@ class BalanceRequestService @Inject() (
   validator: XmlValidationService,
   parser: XmlParsingService,
   connector: EisRouterConnector,
+  auditing: AuditService,
   appConfig: AppConfig,
   clock: Clock,
   metrics: Metrics
@@ -58,16 +60,16 @@ class BalanceRequestService @Inject() (
   private val responseTimer = metrics.defaultRegistry.timer(ResponseTime)
 
   def submitBalanceRequest(
-    request: BalanceRequest
+    request: AuthenticatedRequest[BalanceRequest]
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceId]] =
     for {
       requestedAt <- IO(clock.instant())
 
-      id <- repository.insertBalanceRequest(request, requestedAt)
+      id <- repository.insertBalanceRequest(request.body, requestedAt)
 
       uniqueRef <- UniqueReference.next
 
-      message = formatter.formatMessage(id, requestedAt, uniqueRef, request)
+      message = formatter.formatMessage(id, requestedAt, uniqueRef, request.body)
 
       validated =
         if (appConfig.selfCheck)
@@ -92,6 +94,8 @@ class BalanceRequestService @Inject() (
           id
         }
       }
+
+      _ <- auditing.auditBalanceRequest(id, request)
 
     } yield result
 
@@ -144,20 +148,31 @@ class BalanceRequestService @Inject() (
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
-  ): IO[Either[BalanceRequestError, PendingBalanceRequest]] = {
+  )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, PendingBalanceRequest]] = {
     val updateBalance = for {
       validated <- validateResponseMessage(messageType, responseMessage)
 
       response <- parseResponseMessage(messageType, validated)
 
-      completedAt <- EitherT.liftF(IO(clock.instant()))
+      completedAt <- EitherT.right(IO(clock.instant()))
 
       updated <- updateBalanceRequestRecord(recipient, completedAt, response)
+
+      _ <- EitherT.right(auditing.auditBalanceResponse(recipient, response))
 
       _ <- recordResponseTime(updated, completedAt)
 
     } yield updated
 
-    updateBalance.value
+    updateBalance.leftSemiflatTap {
+      case NotFoundError(_) =>
+        auditing.auditBalanceRequestNotFound(recipient)
+      case BadRequestError(errorMessage) =>
+        auditing.auditBalanceResponseInvalid(recipient, responseMessage, errorMessage)
+      case error @ XmlValidationError(_, _) =>
+        auditing.auditBalanceResponseInvalid(recipient, responseMessage, error.message)
+      case _ =>
+        IO.unit
+    }.value
   }
 }

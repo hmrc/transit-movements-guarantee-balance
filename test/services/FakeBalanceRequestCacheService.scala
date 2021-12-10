@@ -21,6 +21,7 @@ import models.BalanceRequestResponse
 import models.MessageType
 import models.PendingBalanceRequest
 import models.errors.BalanceRequestError
+import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.MessageIdentifier
@@ -38,7 +39,7 @@ case class FakeBalanceRequestCacheService(
   ): IO[Option[PendingBalanceRequest]] =
     getBalanceByIdResponse
 
-  override def submitBalanceRequest(balanceRequest: BalanceRequest)(implicit
+  override def submitBalanceRequest(request: AuthenticatedRequest[BalanceRequest])(implicit
     hc: HeaderCarrier
   ): IO[Either[BalanceRequestError, BalanceRequestResponse]] =
     getBalanceResponse
@@ -53,6 +54,6 @@ case class FakeBalanceRequestCacheService(
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
-  ): IO[Either[BalanceRequestError, Unit]] =
+  )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, Unit]] =
     updateBalanceResponse
 }

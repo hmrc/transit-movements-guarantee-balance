@@ -25,6 +25,7 @@ import models.errors.BadRequestError
 import models.errors.FunctionalError
 import models.errors.XmlError
 import models.values.CurrencyCode
+import models.values.ErrorPointer
 import models.values.ErrorType
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -203,7 +204,11 @@ class XmlParsingServiceSpec extends AnyFlatSpec with Matchers with EitherValues 
       .parseResponseMessage(MessageType.FunctionalNack, validIe906Xml)
       .value shouldBe BalanceRequestFunctionalError(
       NonEmptyList.one(
-        FunctionalError(ErrorType(12), "Foo.Bar(1).Baz", Some("Invalid something or other"))
+        FunctionalError(
+          ErrorType(12),
+          ErrorPointer("Foo.Bar(1).Baz"),
+          Some("Invalid something or other")
+        )
       )
     )
   }
@@ -227,7 +232,7 @@ class XmlParsingServiceSpec extends AnyFlatSpec with Matchers with EitherValues 
       .parseResponseMessage(MessageType.XmlNack, validIe917Xml)
       .value shouldBe BalanceRequestXmlError(
       NonEmptyList.one(
-        XmlError(ErrorType(14), "MesRecMES3", None)
+        XmlError(ErrorType(14), ErrorPointer("MesRecMES3"), None)
       )
     )
   }

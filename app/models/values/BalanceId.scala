@@ -16,6 +16,7 @@
 
 package models.values
 
+import akka.util.ByteString
 import cats.effect.IO
 
 import java.nio.ByteBuffer
@@ -38,7 +39,7 @@ case class BalanceId(value: UUID) extends AnyVal {
     val buffer      = ByteBuffer.wrap(new Array[Byte](12))
     buffer.putLong(value.getMostSignificantBits)
     buffer.putInt(first4Bytes.intValue)
-    MessageIdentifier(buffer.array())
+    MessageIdentifier(ByteString(buffer.array()))
   }
 }
 

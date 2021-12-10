@@ -29,11 +29,13 @@ import models.MessageType
 import models.PendingBalanceRequest
 import models.errors.FunctionalError
 import models.errors.UpstreamTimeoutError
+import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
 import models.values._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
+import play.api.test.FakeRequest
 import repositories.FakeBalanceRequestRepository
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse
@@ -81,6 +83,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       validator,
       parser,
       FakeEisRouterConnector(sendMessageResponse),
+      FakeAuditService,
       appConfig,
       Clock.systemUTC(),
       new FakeMetrics
@@ -97,16 +100,22 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
   val internalId = InternalId("internalId")
   val balanceId  = BalanceId(uuid)
 
-  val balanceRequest = BalanceRequest(
-    TaxIdentifier("GB12345678900"),
-    GuaranteeReference("05DE3300BE0001067A001017"),
-    AccessCode("1234")
-  )
+  val balanceRequest =
+    AuthenticatedRequest(
+      FakeRequest().withBody(
+        BalanceRequest(
+          TaxIdentifier("GB12345678900"),
+          GuaranteeReference("05DE3300BE0001067A001017"),
+          AccessCode("1234")
+        )
+      ),
+      InternalId("ABC123")
+    )
 
   val pendingBalanceRequest = PendingBalanceRequest(
     balanceId,
-    balanceRequest.taxIdentifier,
-    balanceRequest.guaranteeReference,
+    balanceRequest.body.taxIdentifier,
+    balanceRequest.body.guaranteeReference,
     Instant.now,
     completedAt = None,
     response = None
@@ -117,7 +126,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
 
   val balanceRequestFunctionalError =
     BalanceRequestFunctionalError(
-      NonEmptyList.one(FunctionalError(ErrorType(14), "Foo.Bar(1).Baz", None))
+      NonEmptyList.one(FunctionalError(ErrorType(14), ErrorPointer("Foo.Bar(1).Baz"), None))
     )
 
   "BalanceRequestCacheService.getBalance" should "return balance request success response when everything is successful" in {

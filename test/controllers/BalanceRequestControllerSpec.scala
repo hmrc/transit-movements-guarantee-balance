@@ -117,7 +117,7 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
     val balanceRequestFunctionalError =
       BalanceRequestFunctionalError(
-        NonEmptyList.one(FunctionalError(ErrorType(14), "Foo.Bar(1).Baz", None))
+        NonEmptyList.one(FunctionalError(ErrorType(14), ErrorPointer("Foo.Bar(1).Baz"), None))
       )
 
     val request = FakeRequest()
@@ -150,7 +150,7 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
     val balanceRequestXmlError =
       BalanceRequestXmlError(
-        NonEmptyList.one(XmlError(ErrorType(14), "Foo.Bar(1).Baz", None))
+        NonEmptyList.one(XmlError(ErrorType(14), ErrorPointer("Foo.Bar(1).Baz"), None))
       )
 
     val request = FakeRequest()

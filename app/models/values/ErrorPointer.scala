@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package models.errors
+package models.values
 
-import models.values.ErrorPointer
-import models.values.ErrorType
+import play.api.libs.json.Format
+import play.api.libs.json.Json
 
-case class XmlError(
-  errorType: ErrorType,
-  errorPointer: ErrorPointer,
-  errorReason: Option[String]
-)
+case class ErrorPointer(value: String) extends AnyVal
+
+object ErrorPointer {
+  implicit val errorPointerFormat: Format[ErrorPointer] =
+    Json.valueFormat[ErrorPointer]
+}
