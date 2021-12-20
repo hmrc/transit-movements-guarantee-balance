@@ -27,5 +27,6 @@ object MetricsKeys {
     val SubmitBalanceRequest = "submit-balance-request"
     val GetBalanceRequest    = "get-balance-request"
     val UpdateBalanceRequest = "update-balance-request"
+    val BalanceResponseSize  = "balance-request-response-size"
   }
 }

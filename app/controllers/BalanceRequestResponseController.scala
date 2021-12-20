@@ -33,11 +33,13 @@ import models.errors.NotFoundError
 import models.errors.XmlValidationError
 import models.formats.HttpFormats
 import models.values.MessageIdentifier
+import play.api.http.HeaderNames
 import play.api.libs.json.Json
 import play.api.mvc.ControllerComponents
 import play.api.mvc.Request
 import play.api.mvc.Result
 import services.BalanceRequestCacheService
+import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import javax.inject.Inject
@@ -76,29 +78,52 @@ class BalanceRequestResponseController @Inject() (
     implicit request =>
       withMetricsTimerResult(UpdateBalanceRequest) {
         requireMessageTypeHeader { messageType =>
-          cache
-            .updateBalance(recipient, messageType, request.body)
-            .flatTap(logServiceError("updating balance request", _))
-            .map {
-              case Right(_) =>
-                Ok
-              case Left(error @ BadRequestError(_)) =>
-                BadRequest(Json.toJson[BalanceRequestError](error))
-              case Left(error @ XmlValidationError(_, _)) =>
-                BadRequest(Json.toJson[BalanceRequestError](error))
-              case Left(error @ NotFoundError(_)) =>
-                NotFound(Json.toJson[BalanceRequestError](error))
-              case Left(_) =>
-                InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
-            }
-            .recoverWith { case NonFatal(e) =>
-              logger.error(e)("Unhandled exception thrown").map { _ =>
-                val error     = InternalServiceError.causedBy(e)
-                val errorJson = Json.toJson[BalanceRequestError](error)
-                InternalServerError(errorJson)
-              }
-            }
+          for {
+            result <- updateBalanceRequestIO(recipient, messageType)
+            _      <- recordRequestLength(request)
+          } yield result
         }
       }
   }
+
+  private def updateBalanceRequestIO(
+    recipient: MessageIdentifier,
+    messageType: MessageType
+  )(implicit request: Request[String], hc: HeaderCarrier): IO[Result] =
+    cache
+      .updateBalance(recipient, messageType, request.body)
+      .flatTap(logServiceError("updating balance request", _))
+      .map {
+        case Right(_) =>
+          Ok
+        case Left(error @ BadRequestError(_)) =>
+          BadRequest(Json.toJson[BalanceRequestError](error))
+        case Left(error @ XmlValidationError(_, _)) =>
+          BadRequest(Json.toJson[BalanceRequestError](error))
+        case Left(error @ NotFoundError(_)) =>
+          NotFound(Json.toJson[BalanceRequestError](error))
+        case Left(_) =>
+          InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
+      }
+      .recoverWith { case NonFatal(e) =>
+        logger.error(e)("Unhandled exception thrown").map { _ =>
+          val error     = InternalServiceError.causedBy(e)
+          val errorJson = Json.toJson[BalanceRequestError](error)
+          InternalServerError(errorJson)
+        }
+      }
+
+  // TODO: do we want this to be a histogram?
+  private def recordRequestLength(request: Request[String]): IO[Unit] =
+    IO {
+      request.headers
+        .get(HeaderNames.CONTENT_LENGTH)
+        .map(_.toLong)
+        .foreach { size =>
+          histogram(BalanceResponseSize).update(size)
+        }
+    }.recover { case NonFatal(e) =>
+      logger.warn(e)("Unable to capture response size for metrics")
+    }
+
 }
