@@ -29,6 +29,7 @@ import play.api.http.HeaderNames
 import play.api.http.MimeTypes
 import play.api.test.Helpers._
 import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.http.RequestId
 import uk.gov.hmrc.http.UpstreamErrorResponse._
 
 import java.time.LocalDateTime
@@ -46,7 +47,10 @@ class EisRouterConnectorSpec
 
   override def portConfigKeys = Seq("microservice.services.eis-router.port")
 
-  implicit val hc = HeaderCarrier(otherHeaders = Seq(Constants.ChannelHeader -> "api"))
+  implicit val hc = HeaderCarrier(
+    requestId = Some(RequestId("6790293d-a688-4d85-9cd4-c8e24e163179")),
+    otherHeaders = Seq(Constants.ChannelHeader -> "api")
+  )
 
   val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
   val balanceId = BalanceId(uuid)

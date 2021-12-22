@@ -33,10 +33,12 @@ import play.api.test.FakeRequest
 import play.api.test.Helpers
 import play.api.test.Helpers._
 import runtime.IOFutures
+import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import java.util.concurrent.CancellationException
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
@@ -47,25 +49,28 @@ class IOMetricsSpec
   with IdiomaticMockito
   with ArgumentMatchersSugar {
 
+  implicit val ec: ExecutionContext = ExecutionContext.global
+  implicit val hc: HeaderCarrier    = HeaderCarrier()
+
   class IOMetricsConnector(val metrics: Metrics) extends IOFutures with IOMetrics {
     def okHttpCall =
       withMetricsTimerResponse("connector-ok") {
-        IO.runFuture { _ => Future.successful(Right(1)) }
+        IO.runFuture { Future.successful(Right(1)) }
       }
 
     def clientErrorHttpCall =
       withMetricsTimerResponse("connector-client-error") {
-        IO.runFuture { _ => Future.successful(Left(UpstreamErrorResponse("Arghhh!!!", 400))) }
+        IO.runFuture { Future.successful(Left(UpstreamErrorResponse("Arghhh!!!", 400))) }
       }
 
     def serverErrorHttpCall =
       withMetricsTimerResponse("connector-server-error") {
-        IO.runFuture { _ => Future.successful(Left(UpstreamErrorResponse("Kaboom!!!", 502))) }
+        IO.runFuture { Future.successful(Left(UpstreamErrorResponse("Kaboom!!!", 502))) }
       }
 
     def unhandledExceptionHttpCall =
       withMetricsTimerResponse("connector-unhandled-exception") {
-        IO.runFuture { _ => Future.failed(new RuntimeException) }
+        IO.runFuture { Future.failed(new RuntimeException) }
       }
 
     def cancelledHttpCall =

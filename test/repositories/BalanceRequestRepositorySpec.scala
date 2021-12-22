@@ -33,6 +33,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import play.api.Configuration
 import play.api.test.DefaultAwaitTimeout
 import play.api.test.FutureAwaits
+import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
@@ -53,7 +54,9 @@ class BalanceRequestRepositorySpec
   with DefaultAwaitTimeout
   with DefaultPlayMongoRepositorySupport[PendingBalanceRequest] {
 
-  implicit val ec    = ExecutionContext.global
+  implicit val ec: ExecutionContext = ExecutionContext.global
+  implicit val hc: HeaderCarrier    = HeaderCarrier()
+
   override val clock = Clock.tickSeconds(ZoneOffset.UTC)
   val random         = new SecureRandom
 

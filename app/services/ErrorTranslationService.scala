@@ -16,6 +16,7 @@
 
 package services
 
+import com.google.inject.ImplementedBy
 import models.errors.FunctionalError
 import models.errors.XmlError
 import models.values.ErrorPointer
@@ -23,7 +24,6 @@ import models.values.ErrorType
 
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.google.inject.ImplementedBy
 
 @ImplementedBy(classOf[ErrorTranslationServiceImpl])
 trait ErrorTranslationService {
