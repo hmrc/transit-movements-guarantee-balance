@@ -95,7 +95,7 @@ class AuditServiceImpl @Inject() (translator: ErrorTranslationService, connector
     IO.executionContext.flatMap { implicit ec =>
       IO {
         connector.sendExplicitAudit[RequestNotFoundEvent](
-          AuditEventType.RequestNotFound.name,
+          AuditEventType.RequestTimedOut.name,
           RequestNotFoundEvent(messageId)
         )
       }
