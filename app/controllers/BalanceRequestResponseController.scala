@@ -33,6 +33,7 @@ import models.errors.NotFoundError
 import models.errors.XmlValidationError
 import models.formats.HttpFormats
 import models.values.MessageIdentifier
+import play.api.http.HeaderNames
 import play.api.libs.json.Json
 import play.api.mvc.ControllerComponents
 import play.api.mvc.Request
@@ -79,6 +80,7 @@ class BalanceRequestResponseController @Inject() (
           cache
             .updateBalance(recipient, messageType, request.body)
             .flatTap(logServiceError("updating balance request", _))
+            .flatTap(_ => recordRequestLength(request))
             .map {
               case Right(_) =>
                 Ok
@@ -101,4 +103,17 @@ class BalanceRequestResponseController @Inject() (
         }
       }
   }
+
+  private def recordRequestLength(request: Request[String]): IO[Unit] =
+    IO {
+      request.headers
+        .get(HeaderNames.CONTENT_LENGTH)
+        .map(_.toLong)
+        .foreach { size =>
+          histogram(BalanceResponseSize).update(size)
+        }
+    }.recoverWith { case NonFatal(e) =>
+      logger.warn(e)("Unable to capture response size for metrics")
+    }
+
 }

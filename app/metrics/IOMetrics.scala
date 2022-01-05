@@ -20,6 +20,7 @@ import cats.effect.IO
 import cats.effect.kernel.Deferred
 import cats.effect.kernel.Resource
 import cats.effect.kernel.Resource.ExitCase
+import com.codahale.metrics.Histogram
 import com.codahale.metrics.MetricRegistry
 import com.kenshoo.play.metrics.Metrics
 import play.api.mvc.Result
@@ -92,6 +93,9 @@ trait IOMetrics {
         completeTimer.as(result)
       }
     }
+
+  def histogram(metricKey: String): Histogram =
+    registry.histogram(metricKey)
 
   private def timerResource(metricKey: String): Resource[IO, MetricsTimer] = {
     val acquireTimer = for {

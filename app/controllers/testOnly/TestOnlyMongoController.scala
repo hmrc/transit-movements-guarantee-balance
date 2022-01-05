@@ -19,8 +19,11 @@ package controllers.testOnly
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import controllers.actions.IOActions
-import play.api.mvc.{Action, AnyContent, ControllerComponents}
-import repositories.{BalanceRequestRepository, IOObservables}
+import play.api.mvc.Action
+import play.api.mvc.AnyContent
+import play.api.mvc.ControllerComponents
+import repositories.BalanceRequestRepository
+import repositories.IOObservables
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
