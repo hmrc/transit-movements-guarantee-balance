@@ -39,7 +39,6 @@ import play.api.mvc.ControllerComponents
 import play.api.mvc.Request
 import play.api.mvc.Result
 import services.BalanceRequestCacheService
-import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import javax.inject.Inject
@@ -78,42 +77,33 @@ class BalanceRequestResponseController @Inject() (
     implicit request =>
       withMetricsTimerResult(UpdateBalanceRequest) {
         requireMessageTypeHeader { messageType =>
-          for {
-            result <- updateBalanceRequestIO(recipient, messageType)
-            _      <- recordRequestLength(request)
-          } yield result
+          cache
+            .updateBalance(recipient, messageType, request.body)
+            .flatTap(logServiceError("updating balance request", _))
+            .flatTap(_ => recordRequestLength(request))
+            .map {
+              case Right(_) =>
+                Ok
+              case Left(error @ BadRequestError(_)) =>
+                BadRequest(Json.toJson[BalanceRequestError](error))
+              case Left(error @ XmlValidationError(_, _)) =>
+                BadRequest(Json.toJson[BalanceRequestError](error))
+              case Left(error @ NotFoundError(_)) =>
+                NotFound(Json.toJson[BalanceRequestError](error))
+              case Left(_) =>
+                InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
+            }
+            .recoverWith { case NonFatal(e) =>
+              logger.error(e)("Unhandled exception thrown").map { _ =>
+                val error     = InternalServiceError.causedBy(e)
+                val errorJson = Json.toJson[BalanceRequestError](error)
+                InternalServerError(errorJson)
+              }
+            }
         }
       }
   }
 
-  private def updateBalanceRequestIO(
-    recipient: MessageIdentifier,
-    messageType: MessageType
-  )(implicit request: Request[String], hc: HeaderCarrier): IO[Result] =
-    cache
-      .updateBalance(recipient, messageType, request.body)
-      .flatTap(logServiceError("updating balance request", _))
-      .map {
-        case Right(_) =>
-          Ok
-        case Left(error @ BadRequestError(_)) =>
-          BadRequest(Json.toJson[BalanceRequestError](error))
-        case Left(error @ XmlValidationError(_, _)) =>
-          BadRequest(Json.toJson[BalanceRequestError](error))
-        case Left(error @ NotFoundError(_)) =>
-          NotFound(Json.toJson[BalanceRequestError](error))
-        case Left(_) =>
-          InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
-      }
-      .recoverWith { case NonFatal(e) =>
-        logger.error(e)("Unhandled exception thrown").map { _ =>
-          val error     = InternalServiceError.causedBy(e)
-          val errorJson = Json.toJson[BalanceRequestError](error)
-          InternalServerError(errorJson)
-        }
-      }
-
-  // TODO: do we want this to be a histogram?
   private def recordRequestLength(request: Request[String]): IO[Unit] =
     IO {
       request.headers
@@ -122,7 +112,7 @@ class BalanceRequestResponseController @Inject() (
         .foreach { size =>
           histogram(BalanceResponseSize).update(size)
         }
-    }.recover { case NonFatal(e) =>
+    }.recoverWith { case NonFatal(e) =>
       logger.warn(e)("Unable to capture response size for metrics")
     }
 
