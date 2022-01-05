@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ sealed abstract class AuditEventType(val name: String) extends Product with Seri
 
 object AuditEventType {
   case object RequestSent     extends AuditEventType("RequestSent")
-  case object RequestNotFound extends AuditEventType("RequestNotFound")
+  case object RequestTimedOut extends AuditEventType("RequestTimedOut")
   case object SuccessResponse extends AuditEventType("SuccessResponse")
   case object ErrorResponse   extends AuditEventType("ErrorResponse")
   case object InvalidResponse extends AuditEventType("InvalidResponse")

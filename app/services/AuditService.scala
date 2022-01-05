@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ class AuditServiceImpl @Inject() (translator: ErrorTranslationService, connector
     IO.executionContext.flatMap { implicit ec =>
       IO {
         connector.sendExplicitAudit[RequestNotFoundEvent](
-          AuditEventType.RequestNotFound.name,
+          AuditEventType.RequestTimedOut.name,
           RequestNotFoundEvent(messageId)
         )
       }
