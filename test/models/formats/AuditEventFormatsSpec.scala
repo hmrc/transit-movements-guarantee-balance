@@ -60,7 +60,7 @@ class AuditEventFormatsSpec extends AnyFlatSpec with Matchers {
     Json.toJsObject(event) shouldBe Json.obj(
       "requestMessageId"   -> "22b9899e24ee48e6a18997d1",
       "userInternalId"     -> "ABC123",
-      "taxIdentifier"      -> "GB12345678900",
+      "eoriNumber"         -> "GB12345678900",
       "guaranteeReference" -> "05DE3300BE0001067A001017",
       "accessCode"         -> "1234"
     )

@@ -35,7 +35,7 @@ sealed abstract class AuditEvent extends Product with Serializable
 case class RequestEvent(
   requestMessageId: MessageIdentifier,
   userInternalId: InternalId,
-  taxIdentifier: TaxIdentifier,
+  eoriNumber: TaxIdentifier,
   guaranteeReference: GuaranteeReference,
   accessCode: AccessCode
 ) extends AuditEvent

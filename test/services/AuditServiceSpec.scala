@@ -104,7 +104,7 @@ class AuditServiceSpec
     auditService
       .auditBalanceRequestNotFound(balanceId.messageIdentifier)
       .map { _ =>
-        auditConnector.sendExplicitAudit("RequestNotFound", notFoundEvent)(
+        auditConnector.sendExplicitAudit("RequestTimedOut", notFoundEvent)(
           any[HeaderCarrier],
           any[ExecutionContext],
           any[Writes[RequestNotFoundEvent]]
