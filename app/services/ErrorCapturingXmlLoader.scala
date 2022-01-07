@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,8 +39,8 @@ class ErrorCapturingXmlLoader(
     messageParser
 
   override def adapter = new NoBindingFactoryAdapter {
-    override def warning(error: SAXParseException): Unit =
-      errorBuffer += SchemaValidationError.fromSaxParseException(error)
+    override def warning(error: SAXParseException): Unit = ()
+
     override def error(error: SAXParseException): Unit =
       errorBuffer += SchemaValidationError.fromSaxParseException(error)
     override def fatalError(error: SAXParseException): Unit =

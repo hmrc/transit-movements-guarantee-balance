@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import config.Constants
 import controllers.actions.FakeAuthActionProvider
+import metrics.FakeMetrics
 import models.BalanceRequestFunctionalError
 import models.BalanceRequestResponse
 import models.BalanceRequestSuccess
@@ -67,7 +68,8 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
       FakeAuthActionProvider,
       service,
       Helpers.stubControllerComponents(),
-      IORuntime.global
+      IORuntime.global,
+      new FakeMetrics
     )
   }
 
@@ -107,7 +109,7 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
     val balanceRequestFunctionalError =
       BalanceRequestFunctionalError(
-        NonEmptyList.one(FunctionalError(ErrorType(14), "Foo.Bar(1).Baz", None))
+        NonEmptyList.one(FunctionalError(ErrorType(14), ErrorPointer("Foo.Bar(1).Baz"), None))
       )
 
     val request = FakeRequest()
@@ -140,7 +142,7 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
     val balanceRequestXmlError =
       BalanceRequestXmlError(
-        NonEmptyList.one(XmlError(ErrorType(14), "Foo.Bar(1).Baz", None))
+        NonEmptyList.one(XmlError(ErrorType(14), ErrorPointer("Foo.Bar(1).Baz"), None))
       )
 
     val request = FakeRequest()
@@ -284,7 +286,6 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
     val pendingBalanceRequest = PendingBalanceRequest(
       balanceId,
-      EnrolmentId("12345678ABC"),
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       requestedAt.toInstant,
@@ -300,7 +301,6 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     contentType(result) shouldBe Some(ContentTypes.JSON)
     contentAsJson(result) shouldBe Json.obj(
       "balanceId"          -> "22b9899e-24ee-48e6-a189-97d1f45391c4",
-      "enrolmentId"        -> "12345678ABC",
       "taxIdentifier"      -> "GB12345678900",
       "guaranteeReference" -> "05DE3300BE0001067A001017",
       "requestedAt"        -> "2021-09-14T09:52:15Z"
@@ -318,7 +318,6 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
 
     val pendingBalanceRequest = PendingBalanceRequest(
       balanceId,
-      EnrolmentId("12345678ABC"),
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       requestedAt.toInstant,
@@ -334,7 +333,6 @@ class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
     contentType(result) shouldBe Some(ContentTypes.JSON)
     contentAsJson(result) shouldBe Json.obj(
       "balanceId"          -> "22b9899e-24ee-48e6-a189-97d1f45391c4",
-      "enrolmentId"        -> "12345678ABC",
       "taxIdentifier"      -> "GB12345678900",
       "guaranteeReference" -> "05DE3300BE0001067A001017",
       "requestedAt"        -> "2021-09-14T09:52:15Z",

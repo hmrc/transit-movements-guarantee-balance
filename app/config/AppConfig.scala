@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,9 +35,6 @@ class AppConfig @Inject() (config: Configuration, servicesConfig: ServicesConfig
   lazy val eisRouterUrl: AbsoluteUrl =
     eisRouterBaseUrl.withPath(eisRouterPath)
 
-  lazy val enrolmentKey        = config.get[String]("auth.enrolmentKey")
-  lazy val enrolmentIdentifier = config.get[String]("auth.enrolmentIdentifier")
-
   lazy val balanceRequestTimeout: FiniteDuration =
     config.get[FiniteDuration]("balance-request-cache.request-timeout")
   lazy val balanceRequestCacheTtl: FiniteDuration =
@@ -49,4 +46,7 @@ class AppConfig @Inject() (config: Configuration, servicesConfig: ServicesConfig
   lazy val features = config.getOptional[Map[String, Boolean]]("features").getOrElse(Map.empty)
 
   lazy val selfCheck = features.get("self-check").getOrElse(false)
+
+  lazy val eisRouterCircuitBreakerConfig =
+    CircuitBreakerConfig.fromServicesConfig("eis-router", config)
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ case class BadRequestError(message: String) extends BalanceRequestError
 case class NotFoundError(message: String) extends BalanceRequestError
 
 case class XmlValidationError(messageType: MessageType, errors: NonEmptyList[SchemaValidationError])
-    extends BalanceRequestError {
+  extends BalanceRequestError {
   lazy val message: String = s"Error while validating ${messageType.code} message"
 }
 
@@ -57,7 +57,7 @@ object InternalServiceError {
 }
 
 case class UpstreamTimeoutError(balanceId: BalanceId, message: String = "Gateway timeout")
-    extends BalanceRequestError
+  extends BalanceRequestError
 
 object BalanceRequestError {
   def notFoundError(message: String): BalanceRequestError =

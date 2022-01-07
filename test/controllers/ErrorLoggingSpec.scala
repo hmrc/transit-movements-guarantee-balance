@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,11 +38,11 @@ import uk.gov.hmrc.http.UpstreamErrorResponse
 import java.util.UUID
 
 class ErrorLoggingSpec
-    extends AnyFlatSpec
-    with Matchers
-    with ScalaCheckPropertyChecks
-    with Logging
-    with ErrorLogging {
+  extends AnyFlatSpec
+  with Matchers
+  with ScalaCheckPropertyChecks
+  with Logging
+  with ErrorLogging {
 
   def withLogAppender[A](test: ListAppender[ILoggingEvent] => A) = {
     val slf4jLogger   = LoggerFactory.getLogger(getClass())

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,11 @@
 
 package repositories
 
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import cats.effect.IO
 import com.google.inject.ImplementedBy
+import com.mongodb.client.model.changestream.ChangeStreamDocument
 import config.AppConfig
 import logging.Logging
 import models.BalanceRequestResponse
@@ -25,30 +28,24 @@ import models.PendingBalanceRequest
 import models.formats.MongoFormats
 import models.request.BalanceRequest
 import models.values.BalanceId
-import models.values.EnrolmentId
-import models.values.GuaranteeReference
 import models.values.MessageIdentifier
-import models.values.TaxIdentifier
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
-import org.bson.codecs.configuration.CodecRegistries
-import org.mongodb.scala.MongoClient
-import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.model.Filters
 import org.mongodb.scala.model.FindOneAndUpdateOptions
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.model.IndexOptions
 import org.mongodb.scala.model.Indexes
 import org.mongodb.scala.model.ReturnDocument
-import org.mongodb.scala.model.Sorts
 import org.mongodb.scala.model.Updates
+import org.mongodb.scala.model.changestream.FullDocument
 import retry.RetryPolicies
 import retry.syntax.all._
 import runtime.RetryLogging
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.MongoUtils
 import uk.gov.hmrc.mongo.play.json.Codecs
-import uk.gov.hmrc.mongo.play.json.CollectionFactory
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import java.security.SecureRandom
@@ -62,14 +59,7 @@ import scala.concurrent.ExecutionContext
 trait BalanceRequestRepository {
   def getBalanceRequest(balanceId: BalanceId): IO[Option[PendingBalanceRequest]]
 
-  def getBalanceRequest(
-    enrolmentId: EnrolmentId,
-    taxIdentifier: TaxIdentifier,
-    guaranteeReference: GuaranteeReference
-  ): IO[Option[PendingBalanceRequest]]
-
   def insertBalanceRequest(
-    enrolmentId: EnrolmentId,
     balanceRequest: BalanceRequest,
     requestedAt: Instant
   ): IO[BalanceId]
@@ -79,6 +69,10 @@ trait BalanceRequestRepository {
     completedAt: Instant,
     response: BalanceRequestResponse
   ): IO[Option[PendingBalanceRequest]]
+
+  def changeStream(
+    resumeToken: Option[Document]
+  ): Source[ChangeStreamDocument[PendingBalanceRequest], NotUsed]
 }
 
 @Singleton
@@ -90,47 +84,38 @@ class BalanceRequestRepositoryImpl @Inject() (
 )(implicit
   ec: ExecutionContext
 ) extends PlayMongoRepository[PendingBalanceRequest](
-      mongoComponent = mongoComponent,
-      collectionName = BalanceRequestRepository.collectionName,
-      domainFormat = MongoFormats.pendingBalanceRequestFormat,
-      indexes = Seq(
-        IndexModel(
-          Indexes.ascending("messageIdentifier"),
-          IndexOptions()
-            .unique(true)
-            .background(false)
-        ),
-        IndexModel(
-          Indexes.descending("requestedAt"),
-          IndexOptions()
-            .background(false)
-            .expireAfter(
-              appConfig.mongoBalanceRequestTtl.length,
-              appConfig.mongoBalanceRequestTtl.unit
-            )
-        )
+    mongoComponent = mongoComponent,
+    collectionName = BalanceRequestRepository.collectionName,
+    domainFormat = MongoFormats.pendingBalanceRequestFormat,
+    indexes = Seq(
+      IndexModel(
+        Indexes.ascending("messageIdentifier"),
+        IndexOptions()
+          .unique(true)
+          .background(false)
+      ),
+      IndexModel(
+        Indexes.descending("requestedAt"),
+        IndexOptions()
+          .background(false)
+          .expireAfter(
+            appConfig.mongoBalanceRequestTtl.length,
+            appConfig.mongoBalanceRequestTtl.unit
+          )
       )
+    ),
+    extraCodecs = Seq(
+      new UuidCodec(UuidRepresentation.STANDARD),
+      Codecs.playFormatCodec(MongoFormats.messageIdentifierFormat),
+      Codecs.playFormatCodec(MongoFormats.balanceRequestResponseFormat),
+      Codecs.playFormatCodec(MongoFormats.balanceRequestSuccessFormat),
+      Codecs.playFormatCodec(MongoFormats.balanceRequestFunctionalErrorFormat),
+      Codecs.playFormatCodec(MongoFormats.balanceRequestXmlErrorFormat)
     )
-    with BalanceRequestRepository
-    with IOObservables
-    with Logging {
-
-  override lazy val collection: MongoCollection[PendingBalanceRequest] =
-    CollectionFactory
-      .collection(mongoComponent.database, collectionName, domainFormat)
-      .withCodecRegistry(
-        CodecRegistries.fromRegistries(
-          CodecRegistries.fromCodecs(
-            Codecs.playFormatCodec(domainFormat),
-            new UuidCodec(UuidRepresentation.STANDARD),
-            Codecs.playFormatCodec(MongoFormats.balanceRequestResponseFormat),
-            Codecs.playFormatCodec(MongoFormats.balanceRequestSuccessFormat),
-            Codecs.playFormatCodec(MongoFormats.balanceRequestFunctionalErrorFormat),
-            Codecs.playFormatCodec(MongoFormats.balanceRequestXmlErrorFormat)
-          ),
-          MongoClient.DEFAULT_CODEC_REGISTRY
-        )
-      )
+  )
+  with BalanceRequestRepository
+  with IOObservables
+  with Logging {
 
   private def isDuplicateKey(exc: Throwable) = exc match {
     case MongoUtils.DuplicateKey(_) => IO.pure(true)
@@ -142,32 +127,13 @@ class BalanceRequestRepositoryImpl @Inject() (
       collection.find(Filters.eq("_id", balanceId.value))
     }
 
-  def getBalanceRequest(
-    enrolmentId: EnrolmentId,
-    taxIdentifier: TaxIdentifier,
-    guaranteeReference: GuaranteeReference
-  ): IO[Option[PendingBalanceRequest]] =
-    IO.observeFirstOption {
-      collection
-        .find(
-          Filters.and(
-            Filters.eq("enrolmentId", enrolmentId.value),
-            Filters.eq("taxIdentifier", taxIdentifier.value),
-            Filters.eq("guaranteeReference", guaranteeReference.value)
-          )
-        )
-        .sort(Sorts.descending("requestedAt"))
-    }
-
   def insertBalanceRequest(
-    enrolmentId: EnrolmentId,
     balanceRequest: BalanceRequest,
     requestedAt: Instant
   ): IO[BalanceId] = {
     val insertResult = BalanceId.next(clock, random).flatMap { id =>
       val pendingRequest = PendingBalanceRequest(
         balanceId = id,
-        enrolmentId = enrolmentId,
         taxIdentifier = balanceRequest.taxIdentifier,
         guaranteeReference = balanceRequest.guaranteeReference,
         requestedAt = requestedAt,
@@ -198,7 +164,7 @@ class BalanceRequestRepositoryImpl @Inject() (
   ): IO[Option[PendingBalanceRequest]] =
     IO.observeFirstOption {
       collection.findOneAndUpdate(
-        Filters.eq("messageIdentifier", messageIdentifier.value),
+        Filters.eq("messageIdentifier", messageIdentifier),
         Updates.combine(
           Updates.set("completedAt", completedAt),
           Updates.set("response", response)
@@ -207,6 +173,22 @@ class BalanceRequestRepositoryImpl @Inject() (
           .returnDocument(ReturnDocument.AFTER)
       )
     }
+
+  def changeStream(
+    resumeToken: Option[Document]
+  ): Source[ChangeStreamDocument[PendingBalanceRequest], NotUsed] = {
+    val changeStream = collection.watch().fullDocument(FullDocument.UPDATE_LOOKUP)
+
+    Source.fromPublisher {
+      resumeToken
+        .map { token =>
+          changeStream.startAfter(token)
+        }
+        .getOrElse {
+          changeStream
+        }
+    }
+  }
 }
 
 object BalanceRequestRepository {

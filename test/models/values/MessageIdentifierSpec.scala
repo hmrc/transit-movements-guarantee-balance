@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package models.values
 
+import akka.util.ByteString
 import org.scalacheck.Gen
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -26,10 +27,10 @@ import play.api.mvc.PathBindable
 import java.security.SecureRandom
 
 class MessageIdentifierSpec
-    extends AnyFlatSpec
-    with Matchers
-    with EitherValues
-    with ScalaCheckPropertyChecks {
+  extends AnyFlatSpec
+  with Matchers
+  with EitherValues
+  with ScalaCheckPropertyChecks {
 
   val random = new SecureRandom
 
@@ -44,7 +45,7 @@ class MessageIdentifierSpec
   val randomBytesGen = Gen.delay {
     val bytes = new Array[Byte](12)
     random.nextBytes(bytes)
-    Gen.const(bytes)
+    Gen.const(ByteString(bytes))
   }
 
   "MessageIdentifier" should "be usable as a path parameter when given valid input" in forAll(

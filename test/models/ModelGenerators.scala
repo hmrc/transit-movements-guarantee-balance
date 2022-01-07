@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,9 +49,6 @@ trait ModelGenerators {
     Gen.stringOfN(len, Gen.alphaNumChar).map(f)
   }
 
-  implicit val arbEnrolmentId: Arbitrary[EnrolmentId] =
-    arbStringValueClass(11, EnrolmentId.apply)
-
   implicit val arbTaxIdentifier: Arbitrary[TaxIdentifier] =
     arbStringValueClass(13, TaxIdentifier.apply)
 
@@ -78,13 +75,11 @@ trait ModelGenerators {
     Arbitrary {
       for {
         balanceId          <- arbitrary[UUID].map(BalanceId.apply)
-        enrolmentId        <- arbitrary[EnrolmentId]
         taxIdentifier      <- arbitrary[TaxIdentifier]
         guaranteeReference <- arbitrary[GuaranteeReference]
         requestedAt        <- arbitrary[Instant]
       } yield PendingBalanceRequest(
         balanceId,
-        enrolmentId,
         taxIdentifier,
         guaranteeReference,
         requestedAt,
@@ -98,11 +93,16 @@ trait ModelGenerators {
       arbitrary[Int].map(ErrorType.apply)
     }
 
+  implicit val arbErrorPointer: Arbitrary[ErrorPointer] =
+    Arbitrary {
+      Gen.alphaNumStr.map(ErrorPointer.apply)
+    }
+
   implicit val arbFunctionalError: Arbitrary[FunctionalError] =
     Arbitrary {
       for {
         errorType    <- arbitrary[ErrorType]
-        errorPointer <- Gen.alphaNumStr
+        errorPointer <- arbitrary[ErrorPointer]
         errorReason  <- Gen.option(Gen.alphaNumStr)
       } yield FunctionalError(errorType, errorPointer, errorReason)
     }
@@ -111,7 +111,7 @@ trait ModelGenerators {
     Arbitrary {
       for {
         errorType    <- arbitrary[ErrorType]
-        errorPointer <- Gen.alphaNumStr
+        errorPointer <- arbitrary[ErrorPointer]
         errorReason  <- Gen.option(Gen.alphaNumStr)
       } yield XmlError(errorType, errorPointer, errorReason)
     }

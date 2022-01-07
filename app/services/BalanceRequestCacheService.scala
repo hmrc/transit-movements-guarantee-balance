@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,12 +32,10 @@ import models.BalanceRequestResponse
 import models.MessageType
 import models.PendingBalanceRequest
 import models.errors._
+import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
 import models.values.BalanceId
-import models.values.EnrolmentId
-import models.values.GuaranteeReference
 import models.values.MessageIdentifier
-import models.values.TaxIdentifier
 import uk.gov.hmrc.http.HeaderCarrier
 
 import java.util.concurrent.TimeoutException
@@ -46,9 +44,8 @@ import javax.inject.Singleton
 
 @ImplementedBy(classOf[BalanceRequestCacheServiceImpl])
 trait BalanceRequestCacheService {
-  def getBalance(
-    enrolmentId: EnrolmentId,
-    balanceRequest: BalanceRequest
+  def submitBalanceRequest(
+    balanceRequest: AuthenticatedRequest[BalanceRequest]
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]]
 
   def getBalance(
@@ -56,9 +53,7 @@ trait BalanceRequestCacheService {
   )(implicit hc: HeaderCarrier): IO[Option[PendingBalanceRequest]]
 
   def putBalance(
-    enrolmentId: EnrolmentId,
-    taxIdentifier: TaxIdentifier,
-    guaranteeReference: GuaranteeReference,
+    balanceId: BalanceId,
     response: BalanceRequestResponse
   ): IO[Unit]
 
@@ -66,7 +61,7 @@ trait BalanceRequestCacheService {
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
-  ): IO[Either[BalanceRequestError, Unit]]
+  )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, Unit]]
 }
 
 @Singleton
@@ -75,10 +70,10 @@ class BalanceRequestCacheServiceImpl @Inject() (
   metrics: Metrics,
   service: BalanceRequestService
 ) extends BalanceRequestCacheService
-    with Logging
-    with ErrorLogging {
+  with Logging
+  with ErrorLogging {
 
-  type CacheKey         = (EnrolmentId, TaxIdentifier, GuaranteeReference)
+  type CacheKey         = BalanceId
   type DeferredResponse = Deferred[IO, BalanceRequestResponse]
 
   private val cache: LoadingCache[CacheKey, DeferredResponse] = Scaffeine()
@@ -88,22 +83,10 @@ class BalanceRequestCacheServiceImpl @Inject() (
       Deferred.unsafe[IO, BalanceRequestResponse]
     }
 
-  private def submitRequest(enrolmentId: EnrolmentId, balanceRequest: BalanceRequest)(implicit
+  private def submitRequest(request: AuthenticatedRequest[BalanceRequest])(implicit
     hc: HeaderCarrier
   ): EitherT[IO, BalanceRequestError, BalanceId] =
-    EitherT(service.submitBalanceRequest(enrolmentId, balanceRequest))
-
-  private def getRequest(
-    enrolmentId: EnrolmentId,
-    balanceRequest: BalanceRequest
-  ): EitherT[IO, BalanceRequestError, Option[PendingBalanceRequest]] =
-    EitherT.right[BalanceRequestError](
-      service.getBalanceRequest(
-        enrolmentId,
-        balanceRequest.taxIdentifier,
-        balanceRequest.guaranteeReference
-      )
-    )
+    EitherT(service.submitBalanceRequest(request))
 
   private def awaitResponse(
     balanceId: BalanceId,
@@ -119,58 +102,18 @@ class BalanceRequestCacheServiceImpl @Inject() (
     }
   }
 
-  private def fetchNewBalance(
-    enrolmentId: EnrolmentId,
-    balanceRequest: BalanceRequest,
-    deferredResponse: DeferredResponse
+  def submitBalanceRequest(
+    request: AuthenticatedRequest[BalanceRequest]
   )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]] = {
 
     val balanceResponse = for {
-      balanceId <- submitRequest(enrolmentId, balanceRequest)
-      response  <- awaitResponse(balanceId, deferredResponse)
+      balanceId <- submitRequest(request)
+      deferred = cache.get(balanceId)
+      response <- awaitResponse(balanceId, deferred)
+      _ = cache.invalidate(balanceId)
     } yield response
 
     balanceResponse.value
-  }
-
-  private def awaitExistingBalanceRequest(
-    enrolmentId: EnrolmentId,
-    balanceRequest: BalanceRequest,
-    deferred: DeferredResponse
-  ): IO[Either[BalanceRequestError, BalanceRequestResponse]] = {
-    val getBalanceResponse = for {
-      maybeRequest <- getRequest(enrolmentId, balanceRequest)
-
-      balanceId <- EitherT.fromOptionM(
-        IO.pure(maybeRequest.map(_.balanceId)),
-        logger
-          .error("Unable to fetch database record for a cached balance request")
-          .map(_ => BalanceRequestError.internalServiceError())
-      )
-
-      response <- awaitResponse(balanceId, deferred)
-
-    } yield response
-
-    getBalanceResponse.value
-  }
-
-  def getBalance(
-    enrolmentId: EnrolmentId,
-    balanceRequest: BalanceRequest
-  )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, BalanceRequestResponse]] = {
-
-    val cacheKey = (enrolmentId, balanceRequest.taxIdentifier, balanceRequest.guaranteeReference)
-
-    IO(cache.getIfPresent(cacheKey)).flatMap {
-      case Some(deferred) =>
-        awaitExistingBalanceRequest(enrolmentId, balanceRequest, deferred)
-      case None =>
-        for {
-          deferred <- IO(cache.get(cacheKey))
-          response <- fetchNewBalance(enrolmentId, balanceRequest, deferred)
-        } yield response
-    }
   }
 
   def getBalance(
@@ -179,15 +122,11 @@ class BalanceRequestCacheServiceImpl @Inject() (
     service.getBalanceRequest(balanceId)
 
   def putBalance(
-    enrolmentId: EnrolmentId,
-    taxIdentifier: TaxIdentifier,
-    guaranteeReference: GuaranteeReference,
+    balanceId: BalanceId,
     response: BalanceRequestResponse
   ): IO[Unit] = {
-    val cacheKey = (enrolmentId, taxIdentifier, guaranteeReference)
-
     for {
-      deferred <- IO(cache.get(cacheKey))
+      deferred <- IO(cache.get(balanceId))
       _        <- deferred.complete(response)
     } yield ()
   }
@@ -196,25 +135,8 @@ class BalanceRequestCacheServiceImpl @Inject() (
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
-  ): IO[Either[BalanceRequestError, Unit]] = {
-    val updateBalance = for {
-      updated <- EitherT {
-        service.updateBalanceRequest(recipient, messageType, responseMessage)
-      }
-
-      response <- EitherT.fromOptionM(
-        IO.pure(updated.response),
-        logger
-          .error("Unable to find balance response data after updating balance request record")
-          .map(_ => BalanceRequestError.internalServiceError())
-      )
-
-      _ <- EitherT.right[BalanceRequestError] {
-        putBalance(updated.enrolmentId, updated.taxIdentifier, updated.guaranteeReference, response)
-      }
-
-    } yield ()
-
-    updateBalance.value
-  }
+  )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, Unit]] =
+    EitherT {
+      service.updateBalanceRequest(recipient, messageType, responseMessage)
+    }.void.value
 }

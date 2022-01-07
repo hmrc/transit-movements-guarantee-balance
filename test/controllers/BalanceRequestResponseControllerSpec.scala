@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import config.Constants
+import metrics.FakeMetrics
 import models.MessageType
 import models.SchemaValidationError
 import models.errors.BalanceRequestError
@@ -35,6 +36,7 @@ import services.FakeBalanceRequestCacheService
 import uk.gov.hmrc.http.UpstreamErrorResponse
 
 import java.util.UUID
+import play.api.http.HeaderNames
 
 class BalanceRequestResponseControllerSpec extends AnyFlatSpec with Matchers {
 
@@ -44,17 +46,49 @@ class BalanceRequestResponseControllerSpec extends AnyFlatSpec with Matchers {
     new BalanceRequestResponseController(
       service,
       Helpers.stubControllerComponents(),
-      IORuntime.global
+      IORuntime.global,
+      new FakeMetrics
     )
   }
 
   val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
   val balanceId = BalanceId(uuid)
+  val headers = Seq(
+    Constants.MessageTypeHeader -> MessageType.ResponseQueryOnGuarantees.code,
+    HeaderNames.CONTENT_LENGTH  -> "0"
+  )
 
   "BalanceRequestResponseController" should "return 200 when successful" in {
     val request = FakeRequest()
       .withBody("")
+      .withHeaders(headers: _*)
+
+    val result = controller(
+      updateBalanceResponse = IO.unit.map(Right.apply)
+    ).updateBalanceRequest(balanceId.messageIdentifier)(request)
+
+    status(result) shouldBe OK
+  }
+
+  "BalanceRequestResponseController" should "return 200 when successful even if content length is missing" in {
+    val request = FakeRequest()
+      .withBody("")
       .withHeaders(Constants.MessageTypeHeader -> MessageType.ResponseQueryOnGuarantees.code)
+
+    val result = controller(
+      updateBalanceResponse = IO.unit.map(Right.apply)
+    ).updateBalanceRequest(balanceId.messageIdentifier)(request)
+
+    status(result) shouldBe OK
+  }
+
+  "BalanceRequestResponseController" should "return 200 when successful even if content length cannot be parsed" in {
+    val request = FakeRequest()
+      .withBody("")
+      .withHeaders(
+        Constants.MessageTypeHeader -> MessageType.ResponseQueryOnGuarantees.code,
+        HeaderNames.CONTENT_LENGTH  -> "abc"
+      )
 
     val result = controller(
       updateBalanceResponse = IO.unit.map(Right.apply)
@@ -80,7 +114,7 @@ class BalanceRequestResponseControllerSpec extends AnyFlatSpec with Matchers {
   it should "return 400 when there is an error in the request data" in {
     val request = FakeRequest()
       .withBody("")
-      .withHeaders(Constants.MessageTypeHeader -> MessageType.ResponseQueryOnGuarantees.code)
+      .withHeaders(headers: _*)
 
     val error = BalanceRequestError.badRequestError(
       "Unable to parse required values from IE037 message"
@@ -100,7 +134,7 @@ class BalanceRequestResponseControllerSpec extends AnyFlatSpec with Matchers {
   it should "return 400 when there is an error while validating the message against the XML schema" in {
     val request = FakeRequest()
       .withBody("")
-      .withHeaders(Constants.MessageTypeHeader -> MessageType.ResponseQueryOnGuarantees.code)
+      .withHeaders(headers: _*)
 
     val error = BalanceRequestError.xmlValidationError(
       MessageType.ResponseQueryOnGuarantees,
@@ -136,7 +170,7 @@ class BalanceRequestResponseControllerSpec extends AnyFlatSpec with Matchers {
   it should "return 404 when the balance request to update cannot be found" in {
     val request = FakeRequest()
       .withBody("")
-      .withHeaders(Constants.MessageTypeHeader -> MessageType.ResponseQueryOnGuarantees.code)
+      .withHeaders(headers: _*)
 
     val error = BalanceRequestError.notFoundError(balanceId.messageIdentifier)
 
@@ -154,7 +188,7 @@ class BalanceRequestResponseControllerSpec extends AnyFlatSpec with Matchers {
   it should "return 500 when there is an internal service error" in {
     val request = FakeRequest()
       .withBody("")
-      .withHeaders(Constants.MessageTypeHeader -> MessageType.ResponseQueryOnGuarantees.code)
+      .withHeaders(headers: _*)
 
     val error = BalanceRequestError.internalServiceError()
 
@@ -172,7 +206,7 @@ class BalanceRequestResponseControllerSpec extends AnyFlatSpec with Matchers {
   it should "return 500 when there is some other unexpected error" in {
     val request = FakeRequest()
       .withBody("")
-      .withHeaders(Constants.MessageTypeHeader -> MessageType.ResponseQueryOnGuarantees.code)
+      .withHeaders(headers: _*)
 
     val error = UpstreamServiceError.causedBy(UpstreamErrorResponse("", FORBIDDEN))
 
@@ -190,7 +224,7 @@ class BalanceRequestResponseControllerSpec extends AnyFlatSpec with Matchers {
   it should "return 500 when there is an unhandled exception" in {
     val request = FakeRequest()
       .withBody("")
-      .withHeaders(Constants.MessageTypeHeader -> MessageType.ResponseQueryOnGuarantees.code)
+      .withHeaders(headers: _*)
 
     val result = controller(
       updateBalanceResponse = IO.raiseError(new Exception("Kaboom!!!"))

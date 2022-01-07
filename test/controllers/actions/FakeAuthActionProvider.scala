@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package controllers.actions
 
 import cats.arrow.FunctionK
 import models.request.AuthenticatedRequest
-import models.values.EnrolmentId
 import models.values.InternalId
 import play.api.mvc._
 import play.api.test.Helpers
@@ -35,16 +34,16 @@ class FakeAuthActionProvider(
 }
 
 object FakeAuthActionProvider
-    extends FakeAuthActionProvider(FakeAuthAction, Helpers.stubControllerComponents())
+  extends FakeAuthActionProvider(FakeAuthAction, Helpers.stubControllerComponents())
 
 object FakeAuthAction
-    extends FakeAuthAction(new FunctionK[Request, AuthenticatedRequest] {
-      def apply[A](request: Request[A]): AuthenticatedRequest[A] =
-        AuthenticatedRequest(request, InternalId("internalId"), EnrolmentId("enrolmentId"))
-    })
+  extends FakeAuthAction(new FunctionK[Request, AuthenticatedRequest] {
+    def apply[A](request: Request[A]): AuthenticatedRequest[A] =
+      AuthenticatedRequest(request, InternalId("internalId"))
+  })
 
 class FakeAuthAction(result: FunctionK[Request, AuthenticatedRequest])
-    extends ActionTransformer[Request, AuthenticatedRequest] {
+  extends ActionTransformer[Request, AuthenticatedRequest] {
 
   override protected def executionContext: ExecutionContext = ExecutionContext.global
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,12 @@ package controllers
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import cats.syntax.all._
+import com.kenshoo.play.metrics.Metrics
 import config.Constants
 import controllers.actions.IOActions
 import logging.Logging
+import metrics.IOMetrics
+import metrics.MetricsKeys
 import models.MessageType
 import models.errors.BadRequestError
 import models.errors.BalanceRequestError
@@ -30,6 +33,7 @@ import models.errors.NotFoundError
 import models.errors.XmlValidationError
 import models.formats.HttpFormats
 import models.values.MessageIdentifier
+import play.api.http.HeaderNames
 import play.api.libs.json.Json
 import play.api.mvc.ControllerComponents
 import play.api.mvc.Request
@@ -45,12 +49,16 @@ import scala.util.control.NonFatal
 class BalanceRequestResponseController @Inject() (
   cache: BalanceRequestCacheService,
   cc: ControllerComponents,
-  val runtime: IORuntime
+  val runtime: IORuntime,
+  val metrics: Metrics
 ) extends BackendController(cc)
-    with IOActions
-    with HttpFormats
-    with Logging
-    with ErrorLogging {
+  with IOActions
+  with IOMetrics
+  with HttpFormats
+  with Logging
+  with ErrorLogging {
+
+  import MetricsKeys.Controllers._
 
   private def requireMessageTypeHeader[A](
     result: MessageType => IO[Result]
@@ -67,29 +75,45 @@ class BalanceRequestResponseController @Inject() (
 
   def updateBalanceRequest(recipient: MessageIdentifier) = Action.io(parse.tolerantText) {
     implicit request =>
-      requireMessageTypeHeader { messageType =>
-        cache
-          .updateBalance(recipient, messageType, request.body)
-          .flatTap(logServiceError("updating balance request", _))
-          .map {
-            case Right(_) =>
-              Ok
-            case Left(error @ BadRequestError(_)) =>
-              BadRequest(Json.toJson[BalanceRequestError](error))
-            case Left(error @ XmlValidationError(_, _)) =>
-              BadRequest(Json.toJson[BalanceRequestError](error))
-            case Left(error @ NotFoundError(_)) =>
-              NotFound(Json.toJson[BalanceRequestError](error))
-            case Left(_) =>
-              InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
-          }
-          .recoverWith { case NonFatal(e) =>
-            logger.error(e)("Unhandled exception thrown").map { _ =>
-              val error     = InternalServiceError.causedBy(e)
-              val errorJson = Json.toJson[BalanceRequestError](error)
-              InternalServerError(errorJson)
+      withMetricsTimerResult(UpdateBalanceRequest) {
+        requireMessageTypeHeader { messageType =>
+          cache
+            .updateBalance(recipient, messageType, request.body)
+            .flatTap(logServiceError("updating balance request", _))
+            .flatTap(_ => recordRequestLength(request))
+            .map {
+              case Right(_) =>
+                Ok
+              case Left(error @ BadRequestError(_)) =>
+                BadRequest(Json.toJson[BalanceRequestError](error))
+              case Left(error @ XmlValidationError(_, _)) =>
+                BadRequest(Json.toJson[BalanceRequestError](error))
+              case Left(error @ NotFoundError(_)) =>
+                NotFound(Json.toJson[BalanceRequestError](error))
+              case Left(_) =>
+                InternalServerError(Json.toJson(BalanceRequestError.internalServiceError()))
             }
-          }
+            .recoverWith { case NonFatal(e) =>
+              logger.error(e)("Unhandled exception thrown").map { _ =>
+                val error     = InternalServiceError.causedBy(e)
+                val errorJson = Json.toJson[BalanceRequestError](error)
+                InternalServerError(errorJson)
+              }
+            }
+        }
       }
   }
+
+  private def recordRequestLength(request: Request[String]): IO[Unit] =
+    IO {
+      request.headers
+        .get(HeaderNames.CONTENT_LENGTH)
+        .map(_.toLong)
+        .foreach { size =>
+          histogram(BalanceResponseSize).update(size)
+        }
+    }.recoverWith { case NonFatal(e) =>
+      logger.warn(e)("Unable to capture response size for metrics")
+    }
+
 }

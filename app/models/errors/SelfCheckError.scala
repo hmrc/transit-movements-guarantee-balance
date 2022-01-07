@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import cats.data.NonEmptyList
 import models.SchemaValidationError
 
 case class SelfCheckError(errors: NonEmptyList[SchemaValidationError])
-    extends RuntimeException(
-      s"""|Errors while validating generated IE034 message:
+  extends RuntimeException(
+    s"""|Errors while validating generated IE034 message:
           |${errors.map(_.format).toList.mkString("\n")}
           |""".trim.stripMargin
-    )
+  )

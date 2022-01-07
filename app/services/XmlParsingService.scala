@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import models.errors.BalanceRequestError
 import models.errors.FunctionalError
 import models.errors.XmlError
 import models.values.CurrencyCode
+import models.values.ErrorPointer
 import models.values.ErrorType
 
 import javax.inject.Inject
@@ -76,7 +77,7 @@ class XmlParsingServiceImpl @Inject() () extends XmlParsingService {
           errorTypeNode <- (errorNode \ "ErrTypER11").headOption
           errorType = ErrorType(errorTypeNode.text.toInt)
           errorPointerNode <- (errorNode \ "ErrPoiER12").headOption
-          errorPointer    = errorPointerNode.text
+          errorPointer    = ErrorPointer(errorPointerNode.text)
           errorReasonNode = (errorNode \ "ErrReaER13").headOption
           errorReason     = errorReasonNode.map(_.text)
         } yield FunctionalError(errorType, errorPointer, errorReason)
@@ -97,7 +98,7 @@ class XmlParsingServiceImpl @Inject() () extends XmlParsingService {
           errorTypeNode <- (errorNode \ "ErrTypER11").headOption
           errorType = ErrorType(errorTypeNode.text.toInt)
           errorPointerNode <- (errorNode \ "ErrPoiER12").headOption
-          errorPointer    = errorPointerNode.text
+          errorPointer    = ErrorPointer(errorPointerNode.text)
           errorReasonNode = (errorNode \ "ErrReaER13").headOption
           errorReason     = errorReasonNode.map(_.text)
         } yield XmlError(errorType, errorPointer, errorReason)

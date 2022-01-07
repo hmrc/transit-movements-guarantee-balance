@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-package models.values
+package workers
 
-import play.api.libs.json.Format
-import play.api.libs.json.Json
+import play.api.inject.SimpleModule
+import play.api.inject.bind
 
-case class EnrolmentId(value: String) extends AnyVal
-
-object EnrolmentId {
-  implicit val enrolmentIdFormat: Format[EnrolmentId] =
-    Json.valueFormat[EnrolmentId]
-}
+class BalanceRequestUpdateWorkerModule
+  extends SimpleModule((_, _) => Seq(bind[BalanceRequestUpdateWorker].toSelf.eagerly))

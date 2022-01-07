@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import config.AppConfig
 import connectors.FakeEisRouterConnector
+import metrics.FakeMetrics
 import models.BalanceRequestResponse
 import models.BalanceRequestSuccess
 import models.MessageType
@@ -33,11 +34,13 @@ import models.errors.NotFoundError
 import models.errors.SelfCheckError
 import models.errors.UpstreamServiceError
 import models.errors.XmlValidationError
+import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
 import models.values._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
+import play.api.test.FakeRequest
 import repositories.FakeBalanceRequestRepository
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse
@@ -82,27 +85,33 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
       validator,
       parser,
       FakeEisRouterConnector(sendMessageResponse),
+      FakeAuditService,
       appConfig,
       Clock.systemUTC(),
-      new SecureRandom
+      new SecureRandom,
+      new FakeMetrics
     )
   }
 
-  val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-  val balanceId   = BalanceId(uuid)
-  val enrolmentId = EnrolmentId("12345678ABC")
+  val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+  val balanceId = BalanceId(uuid)
 
-  val balanceRequest = BalanceRequest(
-    TaxIdentifier("GB12345678900"),
-    GuaranteeReference("05DE3300BE0001067A001017"),
-    AccessCode("1234")
-  )
+  val balanceRequest =
+    AuthenticatedRequest(
+      FakeRequest().withBody(
+        BalanceRequest(
+          TaxIdentifier("GB12345678900"),
+          GuaranteeReference("05DE3300BE0001067A001017"),
+          AccessCode("1234")
+        )
+      ),
+      InternalId("ABC123")
+    )
 
   val pendingBalanceRequest = PendingBalanceRequest(
     balanceId,
-    enrolmentId,
-    balanceRequest.taxIdentifier,
-    balanceRequest.guaranteeReference,
+    balanceRequest.body.taxIdentifier,
+    balanceRequest.body.guaranteeReference,
     Instant.now,
     completedAt = None,
     response = None
@@ -112,7 +121,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     service(
       insertBalanceRequestResponse = IO.pure(balanceId),
       sendMessageResponse = IO.unit.map(Right.apply)
-    ).submitBalanceRequest(enrolmentId, balanceRequest)
+    ).submitBalanceRequest(balanceRequest)
       .map {
         _ shouldBe Right(balanceId)
       }
@@ -125,7 +134,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     service(
       insertBalanceRequestResponse = IO.pure(balanceId),
       sendMessageResponse = IO.pure(Left(error))
-    ).submitBalanceRequest(enrolmentId, balanceRequest)
+    ).submitBalanceRequest(balanceRequest)
       .map {
         _ shouldBe Left(InternalServiceError.causedBy(error))
       }
@@ -138,7 +147,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
     service(
       insertBalanceRequestResponse = IO.pure(balanceId),
       sendMessageResponse = IO.pure(Left(error))
-    ).submitBalanceRequest(enrolmentId, balanceRequest)
+    ).submitBalanceRequest(balanceRequest)
       .map {
         _ shouldBe Left(UpstreamServiceError.causedBy(error))
       }
@@ -148,7 +157,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
   it should "propagate database exceptions to the caller" in {
     recoverToSucceededIf[RuntimeException] {
       service(insertBalanceRequestResponse = IO.raiseError(new RuntimeException))
-        .submitBalanceRequest(enrolmentId, balanceRequest)
+        .submitBalanceRequest(balanceRequest)
         .unsafeToFuture()
     }
   }
@@ -201,7 +210,7 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
         sendMessageResponse = IO.unit.map(Right.apply),
         appConfig = selfCheckConfig,
         formatter = badXmlFormatter
-      ).submitBalanceRequest(enrolmentId, balanceRequest)
+      ).submitBalanceRequest(balanceRequest)
         .unsafeToFuture()
     }.map {
       _.getMessage shouldBe
@@ -233,45 +242,19 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
       sendMessageResponse = IO.unit.map(Right.apply),
       appConfig = selfCheckDisabledConfig,
       formatter = badXmlFormatter
-    ).submitBalanceRequest(enrolmentId, balanceRequest)
+    ).submitBalanceRequest(balanceRequest)
       .map {
         _ shouldBe Right(balanceId)
       }
       .unsafeToFuture()
   }
 
-  "BalanceRequestService.getBalanceRequest" should "return balance request for provided identifiers when found" in {
-    service(
-      getBalanceRequestResponse = IO.pure(Some(pendingBalanceRequest))
-    ).getBalanceRequest(
-      enrolmentId,
-      balanceRequest.taxIdentifier,
-      balanceRequest.guaranteeReference
-    ).map {
-      _ shouldBe Some(pendingBalanceRequest)
-    }.unsafeToFuture()
-  }
-
-  it should "return None for provided identifiers when the balance request is not found" in {
-    service(
-      getBalanceRequestResponse = IO.pure(None)
-    ).getBalanceRequest(
-      enrolmentId,
-      balanceRequest.taxIdentifier,
-      balanceRequest.guaranteeReference
-    ).map {
-      _ shouldBe None
-    }.unsafeToFuture()
-  }
-
-  "BalanceRequestService.getBalanceRequest by ID" should "delegate to repository" in {
-    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId   = BalanceId(uuid)
-    val enrolmentId = EnrolmentId("12345678ABC")
+  "BalanceRequestService.getBalanceRequest" should "delegate to repository" in {
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
 
     val pendingBalanceRequest = PendingBalanceRequest(
       balanceId,
-      enrolmentId,
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       Instant.now.minusSeconds(5),
@@ -289,16 +272,14 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
   }
 
   "BalanceService.updateBalanceRequest" should "return updated balance request when everything is successful" in {
-    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId   = BalanceId(uuid)
-    val enrolmentId = EnrolmentId("12345678ABC")
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
 
     val balanceRequestSuccess =
       BalanceRequestSuccess(BigDecimal("1212211848.45"), CurrencyCode("GBP"))
 
     val updatedBalanceRequest = PendingBalanceRequest(
       balanceId,
-      enrolmentId,
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("21GB3300BE0001067A001017"),
       Instant.now.minusSeconds(5),

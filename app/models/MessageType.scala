@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 package models
 
 sealed abstract class MessageType(val code: String, val rootNode: String, val xsdPath: String)
-    extends Product
-    with Serializable
+  extends Product
+  with Serializable
 
 object MessageType {
   case object QueryOnGuarantees         extends MessageType("IE034", "CD034A", "/xsd/CD034A.xsd")

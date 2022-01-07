@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,10 +30,10 @@ import org.scalatest.matchers.should.Matchers
 import java.io.IOException
 
 class IOObservablesSpec
-    extends AsyncFlatSpec
-    with Matchers
-    with IOObservables
-    with BeforeAndAfterAll {
+  extends AsyncFlatSpec
+  with Matchers
+  with IOObservables
+  with BeforeAndAfterAll {
 
   private implicit val system = ActorSystem(suiteName)
 

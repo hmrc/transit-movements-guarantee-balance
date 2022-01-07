@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,10 @@ import models.BalanceRequestResponse
 import models.MessageType
 import models.PendingBalanceRequest
 import models.errors.BalanceRequestError
+import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
 import models.values.BalanceId
-import models.values.EnrolmentId
-import models.values.GuaranteeReference
 import models.values.MessageIdentifier
-import models.values.TaxIdentifier
 import uk.gov.hmrc.http.HeaderCarrier
 
 case class FakeBalanceRequestCacheService(
@@ -41,15 +39,13 @@ case class FakeBalanceRequestCacheService(
   ): IO[Option[PendingBalanceRequest]] =
     getBalanceByIdResponse
 
-  override def getBalance(enrolmentId: EnrolmentId, balanceRequest: BalanceRequest)(implicit
+  override def submitBalanceRequest(request: AuthenticatedRequest[BalanceRequest])(implicit
     hc: HeaderCarrier
   ): IO[Either[BalanceRequestError, BalanceRequestResponse]] =
     getBalanceResponse
 
   override def putBalance(
-    enrolmentId: EnrolmentId,
-    taxIdentifier: TaxIdentifier,
-    guaranteeReference: GuaranteeReference,
+    balanceId: BalanceId,
     response: BalanceRequestResponse
   ): IO[Unit] =
     putBalanceResponse
@@ -58,6 +54,6 @@ case class FakeBalanceRequestCacheService(
     recipient: MessageIdentifier,
     messageType: MessageType,
     responseMessage: String
-  ): IO[Either[BalanceRequestError, Unit]] =
+  )(implicit hc: HeaderCarrier): IO[Either[BalanceRequestError, Unit]] =
     updateBalanceResponse
 }

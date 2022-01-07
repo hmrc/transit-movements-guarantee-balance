@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package services
 import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.kernel.Outcome
-import cats.effect.kernel.Ref
 import cats.effect.unsafe.implicits.global
 import config.AppConfig
 import connectors.FakeEisRouterConnector
@@ -29,13 +28,14 @@ import models.BalanceRequestSuccess
 import models.MessageType
 import models.PendingBalanceRequest
 import models.errors.FunctionalError
-import models.errors.InternalServiceError
 import models.errors.UpstreamTimeoutError
+import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
 import models.values._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
+import play.api.test.FakeRequest
 import repositories.FakeBalanceRequestRepository
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse
@@ -84,9 +84,11 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       validator,
       parser,
       FakeEisRouterConnector(sendMessageResponse),
+      FakeAuditService,
       appConfig,
       Clock.systemUTC(),
-      new SecureRandom
+      new SecureRandom,
+      new FakeMetrics
     )
 
     new BalanceRequestCacheServiceImpl(
@@ -96,22 +98,26 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
   }
 
-  val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-  val internalId  = InternalId("internalId")
-  val enrolmentId = EnrolmentId("12345678ABC")
-  val balanceId   = BalanceId(uuid)
+  val uuid       = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+  val internalId = InternalId("internalId")
+  val balanceId  = BalanceId(uuid)
 
-  val balanceRequest = BalanceRequest(
-    TaxIdentifier("GB12345678900"),
-    GuaranteeReference("05DE3300BE0001067A001017"),
-    AccessCode("1234")
-  )
+  val balanceRequest =
+    AuthenticatedRequest(
+      FakeRequest().withBody(
+        BalanceRequest(
+          TaxIdentifier("GB12345678900"),
+          GuaranteeReference("05DE3300BE0001067A001017"),
+          AccessCode("1234")
+        )
+      ),
+      InternalId("ABC123")
+    )
 
   val pendingBalanceRequest = PendingBalanceRequest(
     balanceId,
-    enrolmentId,
-    balanceRequest.taxIdentifier,
-    balanceRequest.guaranteeReference,
+    balanceRequest.body.taxIdentifier,
+    balanceRequest.body.guaranteeReference,
     Instant.now,
     completedAt = None,
     response = None
@@ -122,7 +128,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
 
   val balanceRequestFunctionalError =
     BalanceRequestFunctionalError(
-      NonEmptyList.one(FunctionalError(ErrorType(14), "Foo.Bar(1).Baz", None))
+      NonEmptyList.one(FunctionalError(ErrorType(14), ErrorPointer("Foo.Bar(1).Baz"), None))
     )
 
   "BalanceRequestCacheService.getBalance" should "return balance request success response when everything is successful" in {
@@ -132,12 +138,10 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     val assertion = for {
-      getBalanceFiber <- cacheService.getBalance(enrolmentId, balanceRequest).start
+      getBalanceFiber <- cacheService.submitBalanceRequest(balanceRequest).start
 
       _ <- cacheService.putBalance(
-        enrolmentId,
-        balanceRequest.taxIdentifier,
-        balanceRequest.guaranteeReference,
+        balanceId,
         balanceRequestSuccess
       )
 
@@ -155,12 +159,10 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     val assertion = for {
-      getBalanceFiber <- cacheService.getBalance(enrolmentId, balanceRequest).start
+      getBalanceFiber <- cacheService.submitBalanceRequest(balanceRequest).start
 
       _ <- cacheService.putBalance(
-        enrolmentId,
-        balanceRequest.taxIdentifier,
-        balanceRequest.guaranteeReference,
+        balanceId,
         balanceRequestFunctionalError
       )
 
@@ -178,14 +180,12 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     val assertion = for {
-      getBalanceFiber <- cacheService.getBalance(enrolmentId, balanceRequest).start
+      getBalanceFiber <- cacheService.submitBalanceRequest(balanceRequest).start
 
       _ <- IO.sleep(250.millis)
 
       _ <- cacheService.putBalance(
-        enrolmentId,
-        balanceRequest.taxIdentifier,
-        balanceRequest.guaranteeReference,
+        balanceId,
         balanceRequestSuccess
       )
 
@@ -204,7 +204,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     cacheService
-      .getBalance(enrolmentId, balanceRequest)
+      .submitBalanceRequest(balanceRequest)
       .attempt
       .map {
         _ shouldBe Left(exception)
@@ -221,7 +221,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
     )
 
     cacheService
-      .getBalance(enrolmentId, balanceRequest)
+      .submitBalanceRequest(balanceRequest)
       .attempt
       .map {
         _ shouldBe Left(exception)
@@ -229,116 +229,15 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       .unsafeToFuture()
   }
 
-  it should "not call the underlying services when a result is already cached" in {
-    val cacheService = service(
-      insertBalanceRequestResponse = IO.raiseError(new RuntimeException),
-      getBalanceRequestResponse = IO.pure(Some(pendingBalanceRequest)),
-      sendMessageResponse = IO.raiseError(new RuntimeException)
-    )
-
-    val assertion = for {
-      _ <- cacheService.putBalance(
-        enrolmentId,
-        balanceRequest.taxIdentifier,
-        balanceRequest.guaranteeReference,
-        balanceRequestSuccess
-      )
-
-      response <- cacheService.getBalance(enrolmentId, balanceRequest)
-
-    } yield response shouldBe Right(balanceRequestSuccess)
-
-    assertion.unsafeToFuture()
-  }
-
-  it should "not call the underlying services when there is already a pending request" in {
-    val insertRef = Ref.unsafe[IO, Boolean](false)
-    val sendRef   = Ref.unsafe[IO, Boolean](false)
-
-    val cacheService = service(
-      getBalanceRequestResponse = IO.pure(Some(pendingBalanceRequest)),
-      insertBalanceRequestResponse = for {
-        pending  <- insertRef.getAndUpdate(_ => true)
-        response <- if (pending) IO.raiseError(new RuntimeException) else IO.pure(balanceId)
-      } yield response,
-      sendMessageResponse = for {
-        pending  <- sendRef.getAndUpdate(_ => true)
-        response <- if (pending) IO.raiseError(new RuntimeException) else IO.unit.map(Right.apply)
-      } yield response
-    )
-
-    val assertion = for {
-      fiber1 <- cacheService.getBalance(enrolmentId, balanceRequest).start
-
-      fiber2 <- cacheService.getBalance(enrolmentId, balanceRequest).start
-
-      _ <- cacheService.putBalance(
-        enrolmentId,
-        balanceRequest.taxIdentifier,
-        balanceRequest.guaranteeReference,
-        balanceRequestSuccess
-      )
-
-      response1 <- fiber1.join
-
-      response2 <- fiber2.join
-
-    } yield (response1, response2).shouldBe(
-      (
-        Outcome.Succeeded(IO.pure(Right(balanceRequestSuccess))),
-        Outcome.Succeeded(IO.pure(Right(balanceRequestSuccess)))
-      )
-    )
-
-    assertion.unsafeToFuture()
-  }
-
-  it should "return upstream timeout error when cached responses time out" in {
-    val cacheService = service(
-      insertBalanceRequestResponse = IO.pure(balanceId),
-      getBalanceRequestResponse = IO.pure(Some(pendingBalanceRequest)),
-      sendMessageResponse = IO.unit.map(Right.apply)
-    )
-
-    val assertion = for {
-      fiber1 <- cacheService.getBalance(enrolmentId, balanceRequest).start
-
-      fiber2 <- cacheService.getBalance(enrolmentId, balanceRequest).start
-
-      _ <- IO.sleep(250.millis)
-
-      _ <- cacheService.putBalance(
-        enrolmentId,
-        balanceRequest.taxIdentifier,
-        balanceRequest.guaranteeReference,
-        balanceRequestSuccess
-      )
-
-      response1 <- fiber1.join
-
-      response2 <- fiber2.join
-
-    } yield (response1, response2).shouldBe(
-      (
-        Outcome.Succeeded(IO.pure(Left(UpstreamTimeoutError(balanceId)))),
-        Outcome.Succeeded(IO.pure(Left(UpstreamTimeoutError(balanceId))))
-      )
-    )
-
-    assertion.unsafeToFuture()
-  }
-
   "BalanceRequestCacheService.updateBalance" should "return no errors when all goes well" in {
-    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId   = BalanceId(uuid)
-    val enrolmentId = EnrolmentId("12345678ABC")
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
 
     val balanceRequestSuccess =
       BalanceRequestSuccess(BigDecimal("1212211848.45"), CurrencyCode("GBP"))
 
     val updatedBalanceRequest = PendingBalanceRequest(
       balanceId,
-      enrolmentId,
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("21GB3300BE0001067A001017"),
       Instant.now.minusSeconds(5),
@@ -399,7 +298,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       .unsafeToFuture()
   }
 
-  it should "return internal service error if the underlying balance request is not updated with the response" in {
+  it should "propage runtime exception when updating balance request" in {
 
     val validResponseXml = Utility
       .trim(
@@ -439,29 +338,26 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       .toString
 
     val cacheService = service(
-      updateBalanceRequestResponse = IO.some(pendingBalanceRequest)
+      updateBalanceRequestResponse = IO.raiseError(new RuntimeException)
     )
 
-    cacheService
-      .updateBalance(
-        balanceId.messageIdentifier,
-        MessageType.ResponseQueryOnGuarantees,
-        validResponseXml.toString
-      )
-      .map {
-        _ shouldBe Left(InternalServiceError())
-      }
-      .unsafeToFuture()
+    recoverToSucceededIf[RuntimeException] {
+      cacheService
+        .updateBalance(
+          balanceId.messageIdentifier,
+          MessageType.ResponseQueryOnGuarantees,
+          validResponseXml.toString
+        )
+        .unsafeToFuture()
+    }
   }
 
   "BalanceRequestCacheService.getBalance by ID" should "delegate to underlying repository" in {
-    val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
-    val balanceId   = BalanceId(uuid)
-    val enrolmentId = EnrolmentId("12345678ABC")
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
 
     val pendingBalanceRequest = PendingBalanceRequest(
       balanceId,
-      enrolmentId,
       TaxIdentifier("GB12345678900"),
       GuaranteeReference("05DE3300BE0001067A001017"),
       Instant.now.minusSeconds(5),
@@ -479,5 +375,20 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
         _ shouldBe Some(pendingBalanceRequest)
       }
       .unsafeToFuture()
+  }
+
+  it should "propagate runtime exception when fetching balance request" in {
+    val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
+    val balanceId = BalanceId(uuid)
+
+    val cacheService = service(
+      getBalanceRequestResponse = IO.raiseError(new RuntimeException)
+    )
+
+    recoverToSucceededIf[RuntimeException] {
+      cacheService
+        .getBalance(balanceId)
+        .unsafeToFuture()
+    }
   }
 }

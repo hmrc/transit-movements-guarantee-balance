@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,11 @@
 
 package models.request
 
-import models.values.EnrolmentId
 import models.values.InternalId
 import play.api.mvc.Request
 import play.api.mvc.WrappedRequest
 
 case class AuthenticatedRequest[A](
   request: Request[A],
-  internalId: InternalId,
-  enrolmentId: EnrolmentId
+  internalId: InternalId
 ) extends WrappedRequest[A](request)

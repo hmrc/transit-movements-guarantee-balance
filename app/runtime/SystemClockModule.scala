@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,4 +22,4 @@ import play.api.inject.bind
 import java.time.Clock
 
 class SystemClockModule
-    extends SimpleModule((_, _) => Seq(bind[Clock].toInstance(Clock.systemUTC())))
+  extends SimpleModule((_, _) => Seq(bind[Clock].toInstance(Clock.systemUTC())))

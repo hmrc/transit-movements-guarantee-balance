@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,9 @@ import play.api.libs.json.Format
 import play.api.libs.json.Json
 import play.api.libs.json.OFormat
 import play.api.libs.json._
+import uk.gov.hmrc.mongo.play.json.formats.MongoBinaryFormats
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
+import uk.gov.hmrc.mongo.play.json.formats.MongoUuidFormats
 import uk.gov.hmrc.play.json.Union
 
 import java.time.Instant
@@ -32,10 +34,10 @@ import java.time.Instant
 object MongoFormats extends MongoFormats
 
 trait MongoFormats
-    extends CommonFormats
-    with MongoBinaryFormats
-    with MongoUuidFormats
-    with MongoJavatimeFormats.Implicits {
+  extends CommonFormats
+  with MongoBinaryFormats.Implicits
+  with MongoJavatimeFormats.Implicits
+  with MongoUuidFormats.Implicits {
 
   implicit val functionalErrorFormat: Format[FunctionalError] =
     Json.format[FunctionalError]
@@ -79,7 +81,6 @@ trait MongoFormats
 
   private val balanceRequestFormat: OFormat[PendingBalanceRequest] = (
     (__ \ "_id").format[BalanceId] and
-      (__ \ "enrolmentId").format[EnrolmentId] and
       (__ \ "taxIdentifier").format[TaxIdentifier] and
       (__ \ "guaranteeReference").format[GuaranteeReference] and
       (__ \ "requestedAt").format[Instant] and

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 
 package models.errors
 
+import models.values.ErrorPointer
 import models.values.ErrorType
 
 case class FunctionalError(
   errorType: ErrorType,
-  errorPointer: String,
+  errorPointer: ErrorPointer,
   errorReason: Option[String]
 )

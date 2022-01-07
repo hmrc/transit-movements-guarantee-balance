@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package connectors
 
 import com.github.tomakehurst.wiremock.WireMockServer
+import com.github.tomakehurst.wiremock.common.ConsoleNotifier
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.BeforeAndAfterEach
@@ -28,12 +29,15 @@ import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.inject.guice.GuiceableModule
 
 trait WireMockSpec
-    extends BeforeAndAfterEach
-    with BeforeAndAfterAll
-    with GuiceFakeApplicationFactory { suite: Suite =>
+  extends BeforeAndAfterEach
+  with BeforeAndAfterAll
+  with GuiceFakeApplicationFactory { suite: Suite =>
 
-  protected val wireMockConfig = WireMockConfiguration.wireMockConfig()
-  protected val wireMockServer = new WireMockServer(wireMockConfig.dynamicPort())
+  protected val wireMockConfig =
+    WireMockConfiguration.wireMockConfig().notifier(new ConsoleNotifier(false))
+
+  protected val wireMockServer =
+    new WireMockServer(wireMockConfig.dynamicPort())
 
   protected def portConfigKeys: Seq[String]
 
