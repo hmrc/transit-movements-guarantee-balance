@@ -41,6 +41,7 @@ import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse
 import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
+import java.security.SecureRandom
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -86,6 +87,7 @@ class BalanceRequestCacheServiceSpec extends AsyncFlatSpec with Matchers {
       FakeAuditService,
       appConfig,
       Clock.systemUTC(),
+      new SecureRandom,
       new FakeMetrics
     )
 

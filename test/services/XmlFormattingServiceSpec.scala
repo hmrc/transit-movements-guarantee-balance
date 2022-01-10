@@ -33,8 +33,7 @@ class XmlFormattingServiceSpec extends AnyFlatSpec with Matchers with Streamline
   "XmlFormattingService" should "format XML according to CD034 schema requirements" in {
     val uuid        = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")
     val requestedAt = LocalDateTime.of(2021, 8, 13, 17, 51, 1).toInstant(ZoneOffset.UTC)
-    val refBytes    = Array[Int](0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe, 0xba).map(_.toByte)
-    val reference   = UniqueReference(refBytes)
+    val reference   = UniqueReference(BigInt("z" * 14, 36))
     val balanceId   = BalanceId(uuid)
 
     val balanceRequest = BalanceRequest(
@@ -51,8 +50,8 @@ class XmlFormattingServiceSpec extends AnyFlatSpec with Matchers with Streamline
         <MesRecMES6>NTA.GB</MesRecMES6>
         <DatOfPreMES9>20210813</DatOfPreMES9>
         <TimOfPreMES10>1751</TimOfPreMES10>
-        <IntConRefMES11>deadbeefcafeba</IntConRefMES11>
-        <MesIdeMES19>deadbeefcafeba</MesIdeMES19>
+        <IntConRefMES11>zzzzzzzzzzzzzz</IntConRefMES11>
+        <MesIdeMES19>zzzzzzzzzzzzzz</MesIdeMES19>
         <MesTypMES20>GB034A</MesTypMES20>
         <TRAPRIRC1>
           <TINRC159>GB12345678900</TINRC159>

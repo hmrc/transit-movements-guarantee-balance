@@ -19,7 +19,6 @@ package controllers
 import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
-import config.AppConfig
 import config.Constants
 import controllers.actions.FakeAuthActionProvider
 import metrics.FakeMetrics
@@ -38,7 +37,6 @@ import models.request.BalanceRequest
 import models.values._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.Configuration
 import play.api.http.ContentTypes
 import play.api.libs.json.JsString
 import play.api.libs.json.Json
@@ -47,7 +45,6 @@ import play.api.test.Helpers
 import play.api.test.Helpers._
 import services.FakeBalanceRequestCacheService
 import uk.gov.hmrc.http.UpstreamErrorResponse
-import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -55,11 +52,6 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 class BalanceRequestControllerSpec extends AnyFlatSpec with Matchers {
-
-  def mkAppConfig(config: Configuration) = {
-    val servicesConfig = new ServicesConfig(config)
-    new AppConfig(config, servicesConfig)
-  }
 
   def controller(
     getBalanceResponse: IO[Either[BalanceRequestError, BalanceRequestResponse]] = IO.stub,

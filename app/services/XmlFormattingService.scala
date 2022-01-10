@@ -60,8 +60,8 @@ class XmlFormattingServiceImpl @Inject() () extends XmlFormattingService {
       <MesRecMES6>NTA.GB</MesRecMES6>
       <DatOfPreMES9>{dateFormatter.format(requestedAt)}</DatOfPreMES9>
       <TimOfPreMES10>{timeFormatter.format(requestedAt)}</TimOfPreMES10>
-      <IntConRefMES11>{reference.hexString}</IntConRefMES11>
-      <MesIdeMES19>{reference.hexString}</MesIdeMES19>
+      <IntConRefMES11>{reference.base36String}</IntConRefMES11>
+      <MesIdeMES19>{reference.base36String}</MesIdeMES19>
       <MesTypMES20>GB034A</MesTypMES20>
       <TRAPRIRC1>
         <TINRC159>{request.taxIdentifier.value}</TINRC159>

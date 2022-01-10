@@ -37,6 +37,7 @@ import repositories.BalanceRequestRepository
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse._
 
+import java.security.SecureRandom
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -54,6 +55,7 @@ class BalanceRequestService @Inject() (
   auditing: AuditService,
   appConfig: AppConfig,
   clock: Clock,
+  random: SecureRandom,
   metrics: Metrics
 ) extends Logging {
 
@@ -67,7 +69,7 @@ class BalanceRequestService @Inject() (
 
       id <- repository.insertBalanceRequest(request.body, requestedAt)
 
-      uniqueRef <- UniqueReference.next
+      uniqueRef <- UniqueReference.next(random)
 
       message = formatter.formatMessage(id, requestedAt, uniqueRef, request.body)
 
