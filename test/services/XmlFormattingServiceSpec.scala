@@ -61,9 +61,6 @@ class XmlFormattingServiceSpec extends AnyFlatSpec with Matchers with Streamline
           <GUAQUE>
             <QueIdeQUE1>2</QueIdeQUE1>
           </GUAQUE>
-          <TRAPRIOTG>
-            <TINOTG59>GB12345678900</TINOTG59>
-          </TRAPRIOTG>
           <ACCDOC728>
             <AccCodCOD729>1234</AccCodCOD729>
           </ACCDOC728>

@@ -71,9 +71,6 @@ class XmlFormattingServiceImpl @Inject() () extends XmlFormattingService {
         <GUAQUE>
           <QueIdeQUE1>2</QueIdeQUE1>
         </GUAQUE>
-        <TRAPRIOTG>
-          <TINOTG59>{request.taxIdentifier.value}</TINOTG59>
-        </TRAPRIOTG>
         <ACCDOC728>
           <AccCodCOD729>{request.accessCode.value}</AccCodCOD729>
         </ACCDOC728>
