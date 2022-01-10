@@ -177,8 +177,8 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
         <MesRecMES6>NTA.GB</MesRecMES6>
         <DatOfPreMES9>ABC12345</DatOfPreMES9>
         <TimOfPreMES10>1504</TimOfPreMES10>
-        <IntConRefMES11>deadbeefcafeba</IntConRefMES11>
-        <MesIdeMES19>deadbeefcafeba</MesIdeMES19>
+        <IntConRefMES11>jh8v8a7z7hzmq3</IntConRefMES11>
+        <MesIdeMES19>jh8v8a7z7hzmq3</MesIdeMES19>
         <MesTypMES20>GB034A</MesTypMES20>
         <TRAPRIRC1>
           <TINRC159>GB12345678900</TINRC159>
@@ -188,6 +188,9 @@ class BalanceRequestServiceSpec extends AsyncFlatSpec with Matchers {
           <GUAQUE>
             <QueIdeQUE1>2</QueIdeQUE1>
           </GUAQUE>
+          <TRAPRIOTG>
+            <TINOTG59>GB12345678900</TINOTG59>
+          </TRAPRIOTG>
           <ACCDOC728>
             <AccCodCOD729>ABC1</AccCodCOD729>
           </ACCDOC728>
