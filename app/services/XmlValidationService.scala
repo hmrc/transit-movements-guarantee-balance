@@ -42,32 +42,33 @@ trait XmlValidationService {
 @Singleton
 class XmlValidationServiceImpl @Inject() () extends XmlValidationService {
 
-  val parsersByType: Map[MessageType, SAXParser] =
+  val parsersByType: Map[MessageType, ThreadLocal[SAXParser]] =
     MessageType.values.map { typ =>
       typ -> buildParser(typ)
     }.toMap
 
-  def buildParser(messageType: MessageType): SAXParser = {
-    val schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
-    val parser        = SAXParserFactory.newInstance()
-    val schemaUrl     = getClass.getResource(messageType.xsdPath)
-    val schema        = schemaFactory.newSchema(schemaUrl)
-    parser.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
-    parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-    parser.setFeature("http://xml.org/sax/features/external-general-entities", false)
-    parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-    parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-    parser.setNamespaceAware(true)
-    parser.setXIncludeAware(false)
-    parser.setSchema(schema)
-    parser.newSAXParser()
-  }
+  def buildParser(messageType: MessageType): ThreadLocal[SAXParser] =
+    ThreadLocal.withInitial { () =>
+      val schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
+      val parser        = SAXParserFactory.newInstance()
+      val schemaUrl     = getClass.getResource(messageType.xsdPath)
+      val schema        = schemaFactory.newSchema(schemaUrl)
+      parser.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+      parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+      parser.setFeature("http://xml.org/sax/features/external-general-entities", false)
+      parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+      parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+      parser.setNamespaceAware(true)
+      parser.setXIncludeAware(false)
+      parser.setSchema(schema)
+      parser.newSAXParser()
+    }
 
   def validate(
     messageType: MessageType,
     xml: String
   ): Either[NonEmptyList[SchemaValidationError], Elem] = {
-    val parser = parsersByType(messageType)
+    val parser = parsersByType(messageType).get()
     val loader = new ErrorCapturingXmlLoader(parser)
 
     val parseElem = Either
