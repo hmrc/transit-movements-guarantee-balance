@@ -44,8 +44,8 @@ class XmlParsingServiceSpec extends AnyFlatSpec with Matchers with EitherValues 
       <MesRecMES6>MDTP-GUA-22b9899e24ee48e6a18997d1</MesRecMES6>
       <DatOfPreMES9>20210806</DatOfPreMES9>
       <TimOfPreMES10>1505</TimOfPreMES10>
-      <IntConRefMES11>60b420bb3851d9</IntConRefMES11>
-      <MesIdeMES19>60b420bb3851d9</MesIdeMES19>
+      <IntConRefMES11>jh8v8a7z7hzmq3</IntConRefMES11>
+      <MesIdeMES19>jh8v8a7z7hzmq3</MesIdeMES19>
       <MesTypMES20>GB037A</MesTypMES20>
       <TRAPRIRC1>
         <TINRC159>GB12345678900</TINRC159>
@@ -78,8 +78,8 @@ class XmlParsingServiceSpec extends AnyFlatSpec with Matchers with EitherValues 
       <MesRecMES6>MDTP-GUA-22b9899e24ee48e6a18997d1</MesRecMES6>
       <DatOfPreMES9>20210806</DatOfPreMES9>
       <TimOfPreMES10>1505</TimOfPreMES10>
-      <IntConRefMES11>60b420bb3851d9</IntConRefMES11>
-      <MesIdeMES19>60b420bb3851d9</MesIdeMES19>
+      <IntConRefMES11>jh8v8a7z7hzmq3</IntConRefMES11>
+      <MesIdeMES19>jh8v8a7z7hzmq3</MesIdeMES19>
       <MesTypMES20>GB037A</MesTypMES20>
       <TRAPRIRC1>
         <TINRC159>GB12345678900</TINRC159>
@@ -111,8 +111,8 @@ class XmlParsingServiceSpec extends AnyFlatSpec with Matchers with EitherValues 
       <MesRecMES6>MDTP-GUA-22b9899e24ee48e6a18997d1</MesRecMES6>
       <DatOfPreMES9>20210907</DatOfPreMES9>
       <TimOfPreMES10>1553</TimOfPreMES10>
-      <IntConRefMES11>60b420bb3851d9</IntConRefMES11>
-      <MesIdeMES19>60b420bb3851d9</MesIdeMES19>
+      <IntConRefMES11>jh8v8a7z7hzmq3</IntConRefMES11>
+      <MesIdeMES19>jh8v8a7z7hzmq3</MesIdeMES19>
       <MesTypMES20>GB906A</MesTypMES20>
       <OriMesIdeMES22>MDTP-GUA-00000000000000000000001-01</OriMesIdeMES22>
       <FUNERRER1>
@@ -130,8 +130,8 @@ class XmlParsingServiceSpec extends AnyFlatSpec with Matchers with EitherValues 
       <MesRecMES6>MDTP-GUA-22b9899e24ee48e6a18997d1</MesRecMES6>
       <DatOfPreMES9>20210907</DatOfPreMES9>
       <TimOfPreMES10>1553</TimOfPreMES10>
-      <IntConRefMES11>60b420bb3851d9</IntConRefMES11>
-      <MesIdeMES19>60b420bb3851d9</MesIdeMES19>
+      <IntConRefMES11>jh8v8a7z7hzmq3</IntConRefMES11>
+      <MesIdeMES19>jh8v8a7z7hzmq3</MesIdeMES19>
       <MesTypMES20>GB906A</MesTypMES20>
       <OriMesIdeMES22>MDTP-GUA-00000000000000000000001-01</OriMesIdeMES22>
       <FUNERRER1>
@@ -148,8 +148,8 @@ class XmlParsingServiceSpec extends AnyFlatSpec with Matchers with EitherValues 
       <MesRecMES6>MDTP-GUA-22b9899e24ee48e6a18997d1</MesRecMES6>
       <DatOfPreMES9>20210907</DatOfPreMES9>
       <TimOfPreMES10>1553</TimOfPreMES10>
-      <IntConRefMES11>60b420bb3851d9</IntConRefMES11>
-      <MesIdeMES19>60b420bb3851d9</MesIdeMES19>
+      <IntConRefMES11>jh8v8a7z7hzmq3</IntConRefMES11>
+      <MesIdeMES19>jh8v8a7z7hzmq3</MesIdeMES19>
       <MesTypMES20>GB917A</MesTypMES20>
       <HEAHEA>
         <OriMesIdeMES22>MDTP-GUA-00000000000000000000001-01</OriMesIdeMES22>
@@ -168,8 +168,8 @@ class XmlParsingServiceSpec extends AnyFlatSpec with Matchers with EitherValues 
       <MesRecMES6>MDTP-GUA-22b9899e24ee48e6a18997d1</MesRecMES6>
       <DatOfPreMES9>20210907</DatOfPreMES9>
       <TimOfPreMES10>1553</TimOfPreMES10>
-      <IntConRefMES11>60b420bb3851d9</IntConRefMES11>
-      <MesIdeMES19>60b420bb3851d9</MesIdeMES19>
+      <IntConRefMES11>jh8v8a7z7hzmq3</IntConRefMES11>
+      <MesIdeMES19>jh8v8a7z7hzmq3</MesIdeMES19>
       <MesTypMES20>GB917A</MesTypMES20>
       <HEAHEA>
         <OriMesIdeMES22>MDTP-GUA-00000000000000000000001-01</OriMesIdeMES22>
