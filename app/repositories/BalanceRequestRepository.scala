@@ -43,6 +43,7 @@ import org.mongodb.scala.model.changestream.FullDocument
 import retry.RetryPolicies
 import retry.syntax.all._
 import runtime.RetryLogging
+import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.MongoUtils
 import uk.gov.hmrc.mongo.play.json.Codecs
@@ -62,7 +63,7 @@ trait BalanceRequestRepository {
   def insertBalanceRequest(
     balanceRequest: BalanceRequest,
     requestedAt: Instant
-  ): IO[BalanceId]
+  )(implicit hc: HeaderCarrier): IO[BalanceId]
 
   def updateBalanceRequest(
     messageIdentifier: MessageIdentifier,
@@ -130,7 +131,7 @@ class BalanceRequestRepositoryImpl @Inject() (
   def insertBalanceRequest(
     balanceRequest: BalanceRequest,
     requestedAt: Instant
-  ): IO[BalanceId] = {
+  )(implicit hc: HeaderCarrier): IO[BalanceId] = {
     val insertResult = BalanceId.next(clock, random).flatMap { id =>
       val pendingRequest = PendingBalanceRequest(
         balanceId = id,

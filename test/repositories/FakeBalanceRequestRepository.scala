@@ -26,6 +26,7 @@ import models.request.BalanceRequest
 import models.values.BalanceId
 import models.values.MessageIdentifier
 import org.mongodb.scala.bson.collection.immutable.Document
+import uk.gov.hmrc.http.HeaderCarrier
 
 import java.time.Instant
 
@@ -42,7 +43,7 @@ case class FakeBalanceRequestRepository(
   override def insertBalanceRequest(
     balanceRequest: BalanceRequest,
     requestedAt: Instant
-  ): IO[BalanceId] =
+  )(implicit hc: HeaderCarrier): IO[BalanceId] =
     insertBalanceRequestResponse
 
   override def updateBalanceRequest(

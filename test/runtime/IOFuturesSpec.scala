@@ -23,6 +23,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import play.api.test.DefaultAwaitTimeout
 import play.api.test.FutureAwaits
+import uk.gov.hmrc.http.HeaderCarrier
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -36,11 +37,12 @@ class IOFuturesSpec
   with IOFutures {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
+  implicit val hc: HeaderCarrier    = HeaderCarrier()
 
   "IO.runFuture" should "run successful Futures to identical result" in forAll {
     (fn: (String => Int), str: String) =>
       val viaIO =
-        IO.runFuture { implicit ec => Future(str)(ec).map(fn)(ec) }.unsafeToFuture()
+        IO.runFuture { Future(str)(ec).map(fn)(ec) }.unsafeToFuture()
 
       val viaFuture =
         Future(str).map(fn)
@@ -57,7 +59,7 @@ class IOFuturesSpec
     val exc = new RuntimeException
 
     val viaIO =
-      IO.runFuture { _ => Future(num).map[Int](_ => throw exc) }.unsafeToFuture()
+      IO.runFuture { Future(num).map[Int](_ => throw exc) }.unsafeToFuture()
 
     val viaFuture =
       Future(num).map[Int](_ => throw exc)

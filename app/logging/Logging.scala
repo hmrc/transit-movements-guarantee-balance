@@ -19,8 +19,11 @@ package logging
 import cats.effect.IO
 import org.slf4j.LoggerFactory
 import org.typelevel.log4cats.slf4j.Slf4jLogger
+import uk.gov.hmrc.http.HeaderCarrier
 
 trait Logging {
-  val logger      = Slf4jLogger.getLoggerFromClass[IO](getClass())
-  val slf4jLogger = LoggerFactory.getLogger(getClass())
+  val slf4jLogger         = LoggerFactory.getLogger(getClass())
+  private val basicLogger = Slf4jLogger.getLoggerFromSlf4j[IO](slf4jLogger)
+
+  def logger(implicit hc: HeaderCarrier) = basicLogger.addContext(hc.mdcData)
 }

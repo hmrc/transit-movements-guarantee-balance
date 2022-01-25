@@ -21,6 +21,7 @@ import models.audit.ErrorResponseEvent
 import models.audit.InvalidResponseEvent
 import models.audit.RequestEvent
 import models.audit.RequestNotFoundEvent
+import models.audit.ResponseEvent
 import models.audit.SuccessResponseEvent
 import models.request.AuthenticatedRequest
 import models.request.BalanceRequest
@@ -36,7 +37,6 @@ import play.api.libs.json._
 import play.api.test.FakeRequest
 
 import java.util.UUID
-import models.audit.ResponseEvent
 
 class AuditEventFormatsSpec extends AnyFlatSpec with Matchers {
   val uuid      = UUID.fromString("22b9899e-24ee-48e6-a189-97d1f45391c4")

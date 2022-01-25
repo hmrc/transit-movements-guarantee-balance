@@ -21,6 +21,7 @@ import akka.stream.Materializer
 import config.CircuitBreakerConfig
 import logging.Logging
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 trait CircuitBreakers { self: Logging =>
@@ -29,7 +30,7 @@ trait CircuitBreakers { self: Logging =>
 
   private val clazz = getClass.getSimpleName
 
-  lazy val circuitBreaker = new CircuitBreaker(
+  def circuitBreaker(implicit ec: ExecutionContext) = new CircuitBreaker(
     scheduler = materializer.system.scheduler,
     maxFailures = circuitBreakerConfig.maxFailures,
     callTimeout = circuitBreakerConfig.callTimeout,
@@ -37,7 +38,7 @@ trait CircuitBreakers { self: Logging =>
     maxResetTimeout = circuitBreakerConfig.maxResetTimeout,
     exponentialBackoffFactor = circuitBreakerConfig.exponentialBackoffFactor,
     randomFactor = circuitBreakerConfig.randomFactor
-  )(materializer.executionContext)
+  )
     .onOpen(slf4jLogger.error(s"Circuit breaker for ${clazz} opening due to failures"))
     .onHalfOpen(slf4jLogger.warn(s"Circuit breaker for ${clazz} resetting after failures"))
     .onClose {
