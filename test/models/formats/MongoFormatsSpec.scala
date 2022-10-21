@@ -26,6 +26,7 @@ import play.api.libs.json.Json
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
@@ -41,13 +42,13 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
     balanceId,
     taxIdentifier,
     guaranteeReference,
-    clock.instant().minusSeconds(60),
+    clock.instant().minusSeconds(60).truncatedTo(ChronoUnit.MILLIS),
     completedAt = None,
     response = None
   )
 
   def date(inst: Instant) =
-    Json.obj(s"$$date" -> Json.obj("$numberLong" -> inst.toEpochMilli().toString))
+    Json.obj(s"$$date" -> Json.obj("$numberLong" -> inst.toEpochMilli.toString))
 
   def binary(base64: String, subType: String = "00") =
     Json.obj(s"$$binary" -> Json.obj("base64" -> base64, "subType" -> subType))
@@ -64,7 +65,7 @@ class MongoFormatsSpec extends AnyFlatSpec with Matchers with MongoFormats {
   )
 
   val successfulBalanceRequest = pendingBalanceRequest.copy(
-    completedAt = Some(clock.instant()),
+    completedAt = Some(clock.instant().truncatedTo(ChronoUnit.MILLIS)),
     response = Some(BalanceRequestSuccess(BigDecimal("12345678.90"), CurrencyCode("GBP")))
   )
 
