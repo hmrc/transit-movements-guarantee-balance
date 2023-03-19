@@ -42,6 +42,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
+import scala.concurrent.ExecutionContext
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -58,8 +59,9 @@ trait EisRouterConnector {
 class EisRouterConnectorImpl @Inject() (
   val appConfig: AppConfig,
   http: HttpClient,
-  val metrics: Metrics
-)(implicit val materializer: Materializer)
+  val metrics: Metrics,
+  val materializer: Materializer
+)(implicit ec: ExecutionContext)
   extends EisRouterConnector
   with IOFutures
   with IOMetrics
@@ -81,12 +83,13 @@ class EisRouterConnectorImpl @Inject() (
     hc: HeaderCarrier
   ): IO[Either[UpstreamErrorResponse, Unit]] =
     withMetricsTimerResponse(SendMessage) {
-      IO.runFuture { implicit ec =>
+      IO.runFuture {
         circuitBreaker.withCircuitBreaker(
           {
             val dateTime       = OffsetDateTime.ofInstant(requestedAt, ZoneOffset.UTC)
             val urlString      = appConfig.eisRouterUrl.toString
             val wrappedMessage = <transitRequest>{message}</transitRequest>
+
             val headers = hc.headers(Seq(Constants.ChannelHeader)) ++ Seq(
               HeaderNames.ACCEPT       -> MimeTypes.XML,
               HeaderNames.DATE         -> DateTimeFormatter.RFC_1123_DATE_TIME.format(dateTime),
@@ -94,6 +97,7 @@ class EisRouterConnectorImpl @Inject() (
               "X-Message-Sender"       -> s"MDTP-GUA-${balanceId.messageIdentifier.hexString}",
               "X-Message-Type"         -> MessageType.QueryOnGuarantees.code
             )
+
             http.POSTString[Either[UpstreamErrorResponse, Unit]](
               urlString,
               wrappedMessage.toString,

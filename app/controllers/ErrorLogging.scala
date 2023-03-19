@@ -19,9 +19,12 @@ package controllers
 import cats.effect.IO
 import logging.Logging
 import models.errors._
+import uk.gov.hmrc.http.HeaderCarrier
 
 trait ErrorLogging { self: Logging =>
-  def logServiceError[A](action: String, result: Either[BalanceRequestError, A]): IO[Unit] = {
+  def logServiceError[A](action: String, result: Either[BalanceRequestError, A])(implicit
+    hc: HeaderCarrier
+  ): IO[Unit] = {
     result.fold(
       {
         case UpstreamServiceError(_, cause) =>
