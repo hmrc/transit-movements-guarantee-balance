@@ -33,6 +33,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.slf4j.LoggerFactory
+import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.http.UpstreamErrorResponse
 
 import java.util.UUID
@@ -43,6 +44,8 @@ class ErrorLoggingSpec
   with ScalaCheckPropertyChecks
   with Logging
   with ErrorLogging {
+
+  implicit val hc: HeaderCarrier = HeaderCarrier()
 
   def withLogAppender[A](test: ListAppender[ILoggingEvent] => A) = {
     val slf4jLogger   = LoggerFactory.getLogger(getClass())

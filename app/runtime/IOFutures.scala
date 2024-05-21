@@ -17,13 +17,15 @@
 package runtime
 
 import cats.effect.IO
+import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.play.http.logging.Mdc
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 trait IOFutures {
   implicit class IOCompanionFutureOps(io: IO.type) {
-    def runFuture[A](f: ExecutionContext => Future[A]): IO[A] =
-      IO.fromFuture { IO.executionContext.map(f) }
+    def runFuture[A](f: => Future[A])(implicit ec: ExecutionContext, hc: HeaderCarrier): IO[A] =
+      IO.fromFuture { IO(Mdc.withMdc(f, Mdc.mdcData ++ hc.mdcData)) }
   }
 }
